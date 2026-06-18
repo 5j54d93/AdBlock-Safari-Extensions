@@ -7,18 +7,20 @@
     --report-text-200: #3d3c38;
     --report-text-400: #817f79;
     --report-border-rgb: 31 31 29;
+    --report-brand-icon: #325c00;
     --report-accent: #2f6fe4;
     --report-accent-soft: rgb(47 111 228 / 0.12);
 }
 
 :root.dark {
-    --report-bg: #1f1f1d;
-    --report-surface: rgb(53 52 47 / 0.70);
-    --report-surface-hover: rgb(64 63 57 / 0.84);
+    --report-bg: #262624;
+    --report-surface: #2f2f2c;
+    --report-surface-hover: #393936;
     --report-text-000: #f4f3ef;
     --report-text-200: #d6d4cc;
     --report-text-400: #a09d94;
     --report-border-rgb: 244 243 239;
+    --report-brand-icon: #a8d166;
     --report-accent: #8db2ff;
     --report-accent-soft: rgb(141 178 255 / 0.16);
 }
@@ -89,7 +91,7 @@ main {
 }
 
 .report-title p {
-    color: var(--report-accent);
+    color: var(--report-brand-icon);
     font-size: 12px;
     font-weight: 650;
     line-height: 1.2;
