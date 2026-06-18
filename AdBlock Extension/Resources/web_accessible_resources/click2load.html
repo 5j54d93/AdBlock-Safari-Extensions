@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html id="adblock-clicktoload">
+
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>AdBlock 點擊載入</title>
+<link rel="stylesheet" href="click2load.css">
+</head>
+
+<body>
+
+<main class="click-panel" aria-labelledby="clickTitle">
+    <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+            <path d="M12 3.25 5.75 5.7v5.12c0 4.35 2.55 8.25 6.25 9.93 3.7-1.68 6.25-5.58 6.25-9.93V5.7L12 3.25Z"/>
+            <path d="m9.35 12.25 1.78 1.78 3.78-4.03"/>
+        </svg>
+    </span>
+    <div class="copy">
+        <h1 id="clickTitle">已封鎖第三方內容</h1>
+        <p id="frameURL"><span>正在讀取來源</span></p>
+    </div>
+    <div class="actions">
+        <button id="clickToLoad" type="button" disabled>載入內容</button>
+        <a id="openFrame" href="" rel="noreferrer noopener" target="_blank" hidden aria-label="在新分頁開啟">
+            <svg viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 13v6H5V6h6"/></svg>
+        </a>
+    </div>
+</main>
+
+<script src="click2load.js" type="module"></script>
+
+</body>
+</html>

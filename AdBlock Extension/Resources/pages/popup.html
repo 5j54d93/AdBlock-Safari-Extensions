@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html id="adblock-popup-panel" class="desktop">
+
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark" />
+<link rel="stylesheet" href="../styles/default.css">
+<link rel="stylesheet" href="../styles/common.css">
+<link rel="stylesheet" href="../styles/popup.css">
+<title>AdBlock</title>
+</head>
+
+<body class="loading busy">
+
+<main class="popup-panel" aria-labelledby="popupTitle">
+    <header class="popup-header">
+        <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 20.9863 25.8691">
+                <path d="M0 15.5273C0 19.9512 2.40234 21.5137 9.47266 25.6055C9.77539 25.7812 10.0977 25.8691 10.3125 25.8691C10.5371 25.8691 10.8594 25.7812 11.1523 25.6055C18.252 21.5527 20.625 19.9512 20.625 15.5273L20.625 5.91797C20.625 4.58008 20.0977 4.15039 18.9746 3.68164C17.2949 3.00781 13.0176 1.43555 11.3379 0.859375C11.0059 0.742188 10.6543 0.664062 10.3125 0.664062C9.9707 0.664062 9.62891 0.761719 9.29688 0.859375C7.61719 1.38672 3.33008 3.01758 1.65039 3.68164C0.527344 4.13086 0 4.58008 0 5.91797ZM1.70898 15.1562L1.70898 12.9297L10.3125 12.9297L10.3125 2.39258C10.459 2.39258 10.6543 2.44141 10.8789 2.5293C12.6465 3.22266 16.5918 4.67773 18.3887 5.3125C18.8086 5.46875 18.916 5.69336 18.916 6.25L18.916 12.9297L10.3125 12.9297L10.3125 23.9453C10.1074 23.9453 9.89258 23.8477 9.56055 23.6426C3.7207 20.0488 1.70898 19.0039 1.70898 15.1562Z" fill-opacity="0.85"/>
+            </svg>
+        </span>
+        <div class="title-stack">
+            <h1 id="popupTitle">AdBlock</h1>
+            <p id="hostname" aria-live="polite"><span></span>&shy;<span></span></p>
+        </div>
+    </header>
+
+    <section class="blockingOverview needHTTP" aria-labelledby="blockingOverviewTitle">
+        <div class="overview-top">
+            <div class="overview-copy">
+                <label id="blockingOverviewTitle">封鎖概覽</label>
+                <p>
+                    <strong id="overviewCount">—</strong>
+                    <span id="overviewUnit">近期處理請求</span>
+                </p>
+            </div>
+            <button id="openBlockingReport" class="overview-action" type="button">
+                <span>完整紀錄</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </button>
+        </div>
+        <p id="overviewDetail">正在讀取此網站的封鎖情況。</p>
+    </section>
+
+    <section class="toolMenu localTools needHTTP" aria-labelledby="siteToolsTitle">
+        <label id="siteToolsTitle">此網站</label>
+        <button id="gotoElementRemover" class="tool enabled" type="button">
+            <span class="tool-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                    <path d="m4.75 14.75 8.8-8.8a2.05 2.05 0 0 1 2.9 0l1.6 1.6a2.05 2.05 0 0 1 0 2.9l-8.8 8.8H4.75v-4.5Z"/>
+                    <path d="m12.25 7.25 4.5 4.5"/>
+                    <path d="M4.75 19.25h14.5"/>
+                </svg>
+            </span>
+            <span class="tool-copy">
+                <span class="tool-title">移除元素</span>
+                <span class="tool-detail">選取目前網站上想隱藏的內容。</span>
+            </span>
+            <span class="tool-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+            </span>
+        </button>
+    </section>
+
+    <p class="page-note nonHTTPNotice">此頁面無法使用網站工具。</p>
+    <p id="toolStatus" role="status" aria-live="polite" hidden></p>
+</main>
+<aside aria-hidden="true">
+    <div class="busy-indicator">
+        <span class="svg-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M20 12a8 8 0 0 0-8-8"/></svg></span>
+        <span>正在啟動</span>
+    </div>
+</aside>
+
+<script src="../js/ui/theme.js" type="module"></script>
+<script src="../js/ui/popup.js" type="module"></script>
+
+</body>
+
+</html>

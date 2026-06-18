@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html id="adblock-blocking-report" class="desktop">
+
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark" />
+<link rel="stylesheet" href="../styles/default.css">
+<link rel="stylesheet" href="../styles/common.css">
+<link rel="stylesheet" href="../styles/blocking-report.css">
+<title>完整封鎖紀錄 - AdBlock</title>
+</head>
+
+<body>
+
+<header class="report-header">
+    <div class="report-title">
+        <p>AdBlock</p>
+        <h1>完整封鎖紀錄</h1>
+        <span id="reportContext">正在讀取目前網站的紀錄。</span>
+    </div>
+    <button id="refreshReport" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 12a8 8 0 1 1-2.35-5.65"/>
+            <path d="M20 4.5v5h-5"/>
+        </svg>
+        <span>重新整理</span>
+    </button>
+</header>
+
+<main>
+    <section class="summary-grid" aria-label="封鎖摘要">
+        <div class="summary-item">
+            <span>近期處理請求</span>
+            <strong id="summaryMatches">—</strong>
+        </div>
+        <div class="summary-item">
+            <span>涉及來源</span>
+            <strong id="summaryRulesets">—</strong>
+        </div>
+        <div class="summary-item">
+            <span>最近時間</span>
+            <strong id="summaryLatest">—</strong>
+        </div>
+    </section>
+
+    <section class="report-section" aria-labelledby="recentMatchesTitle">
+        <div class="section-heading">
+            <div>
+                <h2 id="recentMatchesTitle">近期明細</h2>
+                <p id="reportWindow">最近 30 分鐘</p>
+            </div>
+            <p id="reportUpdated">—</p>
+        </div>
+
+        <div id="emptyState" class="empty-state" hidden>
+            <strong>目前沒有可顯示的封鎖紀錄</strong>
+            <span>Safari 只會回傳目前可讀取的近期封鎖資料。</span>
+        </div>
+
+        <div id="reportTableWrap" class="table-wrap" hidden>
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">時間</th>
+                        <th scope="col">來源</th>
+                        <th scope="col">規則 ID</th>
+                    </tr>
+                </thead>
+                <tbody id="reportRows"></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<script src="../js/ui/theme.js" type="module"></script>
+<script src="../js/ui/blocking-report.js" type="module"></script>
+
+</body>
+
+</html>
