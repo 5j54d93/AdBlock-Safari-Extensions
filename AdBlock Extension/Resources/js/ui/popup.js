@@ -32,6 +32,11 @@ const ELEMENT_REMOVER_FILES = [
 let currentTab;
 let currentURL;
 let elementRemoverActive = false;
+let overviewRenderId = 0;
+let protectionEnabled = true;
+let protectionStateRequestId = 0;
+let protectionTogglePending = false;
+let protectionChannel;
 
 /******************************************************************************/
 
@@ -41,6 +46,10 @@ function isPrimaryTrustedClick(event) {
 
 function isHttpURL(url) {
     return url?.protocol === 'http:' || url?.protocol === 'https:';
+}
+
+function isFileURL(url) {
+    return url?.protocol === 'file:';
 }
 
 function closePopup() {
@@ -62,12 +71,45 @@ function setToolStatus(message = '', type = '') {
     status.className = type;
 }
 
+function renderProtectionToggle(state = {}) {
+    if ( typeof state.enabled === 'boolean' ) {
+        protectionEnabled = state.enabled;
+    } else if ( typeof state.defaultFilteringMode === 'number' ) {
+        protectionEnabled = state.defaultFilteringMode !== 0;
+    }
+
+    const toggle = qs$('#protectionToggle');
+    if ( toggle === null ) { return; }
+
+    const enabled = protectionEnabled === true;
+    toggle.setAttribute('aria-checked', String(enabled));
+    toggle.title = enabled ? '關閉 AdBlock 防護' : '開啟 AdBlock 防護';
+    dom.cl.toggle(dom.root, 'protectionOff', enabled === false);
+}
+
+function setProtectionTogglePending(pending) {
+    protectionTogglePending = pending;
+    const toggle = qs$('#protectionToggle');
+    if ( toggle === null ) { return; }
+    toggle.disabled = pending;
+}
+
+function setOverviewLoading(state) {
+    dom.cl.toggle(dom.root, 'overviewLoading', state);
+}
+
 function showPanel() {
     dom.cl.remove(dom.body, 'loading', 'busy');
 }
 
 function renderHostname(hostname = '') {
     const pretty = toUnicode(hostname);
+    if ( pretty === '' ) {
+        dom.text('#hostname span:first-of-type', '');
+        dom.text('#hostname span:last-of-type', '');
+        return;
+    }
+
     const parts = pretty.split('.');
     const suffix = parts.length > 1 ? parts.pop() : pretty;
     const prefix = parts.length !== 0 ? `${parts.join('.')}.` : '';
@@ -77,7 +119,12 @@ function renderHostname(hostname = '') {
 }
 
 function renderPanel() {
-    renderHostname(currentURL?.hostname);
+    if ( isFileURL(currentURL) ) {
+        dom.text('#hostname span:first-of-type', '');
+        dom.text('#hostname span:last-of-type', '本機檔案');
+    } else {
+        renderHostname(currentURL?.hostname);
+    }
     dom.cl.toggle(dom.root, 'isHTTP', isHttpURL(currentURL));
 }
 
@@ -88,49 +135,82 @@ function setOverview(count, unit, detail) {
 }
 
 async function renderBlockingOverview() {
-    if ( isHttpURL(currentURL) === false ) { return; }
+    const renderId = ++overviewRenderId;
 
-    const result = await getRecentBlockingMatches({
-        tabId: currentTab?.id,
+    if ( isHttpURL(currentURL) === false ) {
+        setOverviewLoading(false);
+        return;
+    }
+
+    if ( protectionEnabled === false ) {
+        setOverviewLoading(false);
+        setOverview(
+            '',
+            '防護關閉',
+            '開啟 AdBlock 後才會處理此網站的請求。'
+        );
+        return;
+    }
+
+    setOverviewLoading(true);
+
+    try {
+        const result = await getRecentBlockingMatches({
+            tabId: currentTab?.id,
+        });
+        if ( renderId !== overviewRenderId || protectionEnabled === false ) {
+            return;
+        }
+
+        if ( result.available === false ) {
+            setOverview(
+                '—',
+                '防護中',
+                'Safari 尚未提供此頁的即時封鎖明細。'
+            );
+            return;
+        }
+
+        const summary = summarizeBlockingMatches(result.matches);
+        if ( result.summaryOnly === true ) {
+            setOverview(
+                String(result.totalCount || 0),
+                '近期處理請求',
+                result.totalCount > 0
+                    ? 'Safari 目前只提供數量，完整明細可能稍後才會出現。'
+                    : `${RECENT_MATCH_WINDOW_LABEL}沒有需要處理的請求。`
+            );
+            return;
+        }
+
+        if ( summary.matchCount === 0 ) {
+            setOverview(
+                '0',
+                '近期處理請求',
+                `${RECENT_MATCH_WINDOW_LABEL}沒有需要處理的請求。`
+            );
+            return;
+        }
+
+        const topRulesets = formatTopRulesets(summary);
+        setOverview(
+            String(summary.matchCount),
+            '近期處理請求',
+            topRulesets === ''
+                ? `涉及 ${summary.rulesetCount} 個來源。`
+                : `主要來自 ${topRulesets}。`
+        );
+    } finally {
+        if ( renderId === overviewRenderId ) {
+            setOverviewLoading(false);
+        }
+    }
+}
+
+function queueBlockingOverview() {
+    renderBlockingOverview().catch(reason => {
+        console.log(`renderBlockingOverview/${reason}`);
     });
-    if ( result.available === false ) {
-        setOverview(
-            '—',
-            '防護中',
-            'Safari 尚未提供此頁的即時封鎖明細。'
-        );
-        return;
-    }
-
-    const summary = summarizeBlockingMatches(result.matches);
-    if ( result.summaryOnly === true ) {
-        setOverview(
-            String(result.totalCount || 0),
-            '近期處理請求',
-            result.totalCount > 0
-                ? 'Safari 目前只提供數量，完整明細可能稍後才會出現。'
-                : `${RECENT_MATCH_WINDOW_LABEL}沒有需要處理的請求。`
-        );
-        return;
-    }
-
-    if ( summary.matchCount === 0 ) {
-        setOverview(
-            '0',
-            '近期處理請求',
-            `${RECENT_MATCH_WINDOW_LABEL}沒有需要處理的請求。`
-        );
-        return;
-    }
-
-    const topRulesets = formatTopRulesets(summary);
-    setOverview(
-        String(summary.matchCount),
-        '近期處理請求',
-        topRulesets === ''
-            ? `涉及 ${summary.rulesetCount} 個來源。`
-            : `主要來自 ${topRulesets}。`
-    );
 }
 
 function openBlockingReport(event) {
@@ -144,6 +224,75 @@ function openBlockingReport(event) {
     }
     browser.tabs.create({ url: url.href });
     closePopup();
+}
+
+async function loadProtectionState() {
+    const requestId = ++protectionStateRequestId;
+    try {
+        const state = await sendMessage({ what: 'getProtectionState' });
+        if ( requestId !== protectionStateRequestId || protectionTogglePending ) {
+            return;
+        }
+        if ( state?.ok === true ) {
+            renderProtectionToggle(state);
+            return;
+        }
+    } catch {
+    }
+    if ( requestId !== protectionStateRequestId || protectionTogglePending ) {
+        return;
+    }
+    renderProtectionToggle({ enabled: true });
+}
+
+async function refreshProtectionState() {
+    await loadProtectionState();
+    queueBlockingOverview();
+}
+
+async function refreshElementRemoverState() {
+    try {
+        renderElementRemoverState(await isElementRemoverActive(currentTab?.id));
+    } catch {
+        renderElementRemoverState(false);
+    }
+}
+
+async function toggleProtection(event) {
+    if ( isPrimaryTrustedClick(event) === false ) { return; }
+    if ( protectionTogglePending ) { return; }
+
+    const before = protectionEnabled;
+    const after = before === false;
+    protectionStateRequestId += 1;
+    setProtectionTogglePending(true);
+    renderProtectionToggle({ enabled: after });
+    setToolStatus('');
+
+    try {
+        const state = await sendMessage({
+            what: 'setProtectionEnabled',
+            enabled: after,
+        });
+        if ( state?.ok !== true ) {
+            renderProtectionToggle({ enabled: before });
+            setToolStatus('無法更新防護開關。', 'error');
+            return;
+        }
+        renderProtectionToggle(state);
+        queueBlockingOverview();
+    } catch {
+        renderProtectionToggle({ enabled: before });
+        setToolStatus('無法更新防護開關。', 'error');
+    } finally {
+        setProtectionTogglePending(false);
+    }
+}
+
+function onProtectionMessage(message) {
+    if ( typeof message?.defaultFilteringMode !== 'number' ) { return; }
+    renderProtectionToggle(message);
+    queueBlockingOverview();
 }
 
 async function getActiveTab() {
@@ -339,8 +488,17 @@ async function runPageTool(event) {
 }
 
 function bindEvents() {
+    qs$('#protectionToggle')?.addEventListener('click', toggleProtection);
     qs$('#gotoElementRemover')?.addEventListener('click', runPageTool);
     qs$('#openBlockingReport')?.addEventListener('click', openBlockingReport);
+
+    try {
+        protectionChannel = new BroadcastChannel('AdBlock');
+        protectionChannel.onmessage = event => {
+            onProtectionMessage(event.data);
+        };
+    } catch {
+    }
 }
 
 /******************************************************************************/
@@ -349,14 +507,16 @@ async function init() {
     currentTab = await getActiveTab();
     currentURL = new URL(currentTab.url || runtime.getURL('/'));
     renderPanel();
-    renderBlockingOverview();
-    renderElementRemoverState(await isElementRemoverActive(currentTab.id));
+    renderProtectionToggle();
+    showPanel();
+    queueBlockingOverview();
+    void refreshProtectionState();
+    void refreshElementRemoverState();
 }
 
 async function tryInit() {
     try {
         await init();
-        showPanel();
     } catch {
         self.setTimeout(tryInit, RETRY_DELAY_MS);
     }

@@ -13,6 +13,7 @@ export const runtimeSettings = {
     autoReload: true,
     showBlockedCount: false,
     popupBlockMode: true,
+    lastEnabledFilteringMode: 3,
     hasBroadHostPermissions: true,
     macAppSettingsRevision: 0,
     macAppSiteFilteringHostnames: {

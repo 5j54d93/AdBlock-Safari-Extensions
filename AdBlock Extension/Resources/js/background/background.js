@@ -148,6 +148,72 @@ function filteringModeFromName(name) {
     }
 }
 
+function isEnabledFilteringMode(mode) {
+    return mode === MODE_BASIC ||
+        mode === MODE_OPTIMAL ||
+        mode === MODE_COMPLETE;
+}
+
+function reusableEnabledFilteringMode(mode) {
+    return isEnabledFilteringMode(mode) ? mode : MODE_COMPLETE;
+}
+
+function protectionStateFromMode(mode) {
+    return {
+        ok: true,
+        enabled: mode !== MODE_NONE,
+        defaultFilteringMode: mode,
+    };
+}
+
+async function getProtectionState() {
+    const mode = await getDefaultFilteringMode();
+    if ( isEnabledFilteringMode(mode) &&
+        runtimeSettings.lastEnabledFilteringMode !== mode ) {
+        runtimeSettings.lastEnabledFilteringMode = mode;
+        await saveRuntimeSettings();
+    }
+    return protectionStateFromMode(mode);
+}
+
+async function setProtectionEnabled(enabled) {
+    if ( typeof enabled !== 'boolean' ) {
+        return {
+            ok: false,
+            error: 'invalid-enabled',
+        };
+    }
+
+    const beforeMode = await getDefaultFilteringMode();
+    const targetMode = enabled
+        ? reusableEnabledFilteringMode(runtimeSettings.lastEnabledFilteringMode)
+        : MODE_NONE;
+
+    let settingsChanged = false;
+    if ( isEnabledFilteringMode(beforeMode) &&
+        runtimeSettings.lastEnabledFilteringMode !== beforeMode ) {
+        runtimeSettings.lastEnabledFilteringMode = beforeMode;
+        settingsChanged = true;
+    }
+
+    const afterMode = await setDefaultFilteringMode(targetMode);
+    if ( isEnabledFilteringMode(afterMode) &&
+        runtimeSettings.lastEnabledFilteringMode !== afterMode ) {
+        runtimeSettings.lastEnabledFilteringMode = afterMode;
+        settingsChanged = true;
+    }
+
+    await registerDeclarativeAssets();
+    if ( settingsChanged ) {
+        await saveRuntimeSettings();
+    }
+    broadcastMessage({
+        defaultFilteringMode: afterMode,
+        hasOmnipotence: await hasBroadHostPermissions(),
+    });
+    return protectionStateFromMode(afterMode);
+}
+
 async function sendNativeMessageToMacApp(message) {
     if ( typeof runtime.sendNativeMessage !== 'function' ) { return; }
     let lastReason;
@@ -530,6 +596,12 @@ async function onMessage(request, sender) {
     // Does not require a trusted origin.
 
     switch ( request.what ) {
+
+    case 'getProtectionState':
+        return getProtectionState();
+
+    case 'setProtectionEnabled':
+        return setProtectionEnabled(request.enabled);
 
     case 'toggleToolbarIcon': {
         if ( tabId ) {

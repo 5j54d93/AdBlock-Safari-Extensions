@@ -22,8 +22,11 @@
         </span>
         <div class="title-stack">
             <h1 id="popupTitle">AdBlock</h1>
-            <p id="hostname" aria-live="polite"><span></span>&shy;<span></span></p>
+            <p id="hostname" aria-live="polite"><span></span><span></span></p>
         </div>
+        <button id="protectionToggle" class="protection-toggle" type="button" role="switch" aria-label="AdBlock 防護" aria-checked="true">
+            <span aria-hidden="true"></span>
+        </button>
     </header>
 
     <section class="blockingOverview needHTTP" aria-labelledby="blockingOverviewTitle">
@@ -44,7 +47,7 @@
     </section>
 
     <section class="toolMenu localTools needHTTP" aria-labelledby="siteToolsTitle">
-        <label id="siteToolsTitle">此網站</label>
+        <label id="siteToolsTitle">網站工具</label>
         <button id="gotoElementRemover" class="tool enabled" type="button">
             <span class="tool-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24">

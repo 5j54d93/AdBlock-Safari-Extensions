@@ -2,6 +2,12 @@
     to { transform: rotate(360deg); }
 }
 
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    60% { transform: translateX(100%); }
+    to { transform: translateX(100%); }
+}
+
 :root {
     color-scheme: light dark;
     --popup-min-width: 318px;
@@ -9,15 +15,23 @@
     --popup-radius: 16px;
     --popup-control-radius: 10px;
     --popup-panel-bg: transparent;
-    --popup-control-bg: rgb(248 247 242 / 0.58);
-    --popup-control-bg-hover: rgb(248 247 242 / 0.74);
-    --popup-icon-bg: rgb(255 255 255 / 0.50);
+    --popup-control-bg: rgb(255 255 255 / 0.12);
+    --popup-control-bg-hover: var(--popup-brand-bg);
+    --popup-icon-bg: rgb(255 255 255 / 0.14);
     --popup-busy-bg: rgb(255 255 255 / 0.44);
     --popup-busy-pill-bg: rgb(255 255 255 / 0.72);
     --popup-text-000: #1f1f1d;
     --popup-text-200: #3d3c38;
     --popup-text-400: #817f79;
     --popup-border-rgb: 31 31 29;
+    --popup-brand-bg: rgb(50 92 0 / 0.16);
+    --popup-brand-icon: #325c00;
+    --popup-overview-action-bg: rgb(255 255 255 / 0.10);
+    --popup-overview-action-bg-hover: var(--popup-brand-bg);
+    --popup-skeleton-bg: rgb(31 31 29 / 0.10);
+    --popup-skeleton-shine: rgb(255 255 255 / 0.44);
+    --popup-toggle-off-bg: rgb(31 31 29 / 0.18);
+    --popup-toggle-thumb: #ffffff;
     --popup-accent: #2f6fe4;
     --popup-accent-soft: rgb(47 111 228 / 0.12);
     --popup-success: #217a52;
@@ -29,15 +43,23 @@
 
 :root.dark {
     --popup-panel-bg: transparent;
-    --popup-control-bg: rgb(53 52 47 / 0.58);
-    --popup-control-bg-hover: rgb(64 63 57 / 0.72);
-    --popup-icon-bg: rgb(255 255 255 / 0.10);
+    --popup-control-bg: rgb(0 0 0 / 0.16);
+    --popup-control-bg-hover: rgb(0 0 0 / 0.26);
+    --popup-icon-bg: rgb(0 0 0 / 0.14);
     --popup-busy-bg: rgb(20 20 18 / 0.50);
     --popup-busy-pill-bg: rgb(31 31 29 / 0.78);
     --popup-text-000: #f4f3ef;
     --popup-text-200: #d6d4cc;
     --popup-text-400: #a09d94;
     --popup-border-rgb: 244 243 239;
+    --popup-brand-bg: rgb(168 209 102 / 0.16);
+    --popup-brand-icon: #a8d166;
+    --popup-overview-action-bg: rgb(0 0 0 / 0.14);
+    --popup-overview-action-bg-hover: rgb(0 0 0 / 0.24);
+    --popup-skeleton-bg: rgb(255 255 255 / 0.10);
+    --popup-skeleton-shine: rgb(255 255 255 / 0.12);
+    --popup-toggle-off-bg: rgb(255 255 255 / 0.20);
+    --popup-toggle-thumb: #f4f3ef;
     --popup-accent: #8db2ff;
     --popup-accent-soft: rgb(141 178 255 / 0.16);
     --popup-success: #74d4aa;
@@ -102,8 +124,6 @@ button {
 }
 
 .popup-panel {
-    -webkit-backdrop-filter: blur(22px) saturate(1.35);
-    backdrop-filter: blur(22px) saturate(1.35);
     background: var(--popup-panel-bg);
     border-radius: var(--popup-radius);
     box-shadow: var(--popup-shadow);
@@ -118,18 +138,18 @@ body.busy .popup-panel {
 }
 
 .popup-header {
-    align-items: center;
+    align-items: normal;
     display: grid;
     gap: 12px;
-    grid-template-columns: 38px minmax(0, 1fr);
+    grid-template-columns: 38px minmax(0, 1fr) auto;
     padding: 14px 14px 10px;
 }
 
 .brand-mark {
     align-items: center;
-    background: var(--popup-accent-soft);
+    background: var(--popup-brand-bg);
     border-radius: 11px;
-    color: var(--popup-accent);
+    color: var(--popup-brand-icon);
     display: inline-flex;
     height: 38px;
     justify-content: center;
@@ -159,6 +179,65 @@ h1 {
     margin: 0;
 }
 
+.protection-toggle {
+    -webkit-appearance: none;
+    appearance: none;
+    align-self: start;
+    background: var(--popup-toggle-off-bg);
+    block-size: 22px;
+    border: 0.5px solid rgb(var(--popup-border-rgb) / 0.10);
+    border-radius: 999px;
+    cursor: pointer;
+    display: block;
+    flex: 0 0 auto;
+    height: 22px;
+    inline-size: 38px;
+    justify-self: end;
+    line-height: 1;
+    margin: 0;
+    max-block-size: 22px;
+    min-block-size: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+    position: relative;
+    transition: background-color 160ms ease, border-color 160ms ease, opacity 160ms ease;
+    width: 38px;
+}
+
+.protection-toggle[aria-checked="true"] {
+    background: var(--popup-brand-icon);
+    border-color: transparent;
+}
+
+.protection-toggle span {
+    background: var(--popup-toggle-thumb);
+    block-size: 18px;
+    border-radius: 999px;
+    box-shadow:
+        0 1px 1px rgb(0 0 0 / 0.18),
+        0 2px 4px rgb(0 0 0 / 0.14);
+    display: block;
+    height: 18px;
+    inline-size: 18px;
+    inset-block-start: 2px;
+    inset-inline-start: 2px;
+    pointer-events: none;
+    position: absolute;
+    transform: translateX(0);
+    transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    width: 18px;
+}
+
+.protection-toggle[aria-checked="true"] span {
+    transform: translateX(16px);
+}
+
+.protection-toggle:disabled {
+    cursor: default;
+    opacity: 0.58;
+}
+
 #hostname {
     color: var(--popup-text-400);
     font-size: 12px;
@@ -169,15 +248,8 @@ h1 {
     overflow-wrap: anywhere;
 }
 
-#hostname > span + span {
-    color: var(--popup-text-200);
-    font-weight: 600;
-}
-
 .blockingOverview {
-    -webkit-backdrop-filter: blur(18px) saturate(1.25);
-    backdrop-filter: blur(18px) saturate(1.25);
-    background: var(--popup-control-bg);
+    background: transparent;
     border: 0.5px solid rgb(var(--popup-border-rgb) / 0.13);
     border-radius: var(--popup-control-radius);
     display: flex;
@@ -221,11 +293,53 @@ h1 {
 }
 
 #overviewCount {
-    color: var(--popup-success);
+    color: var(--popup-brand-icon);
     font-size: 19px;
     font-variant-numeric: tabular-nums;
     font-weight: 720;
     line-height: 1;
+}
+
+:root.overviewLoading #overviewCount,
+:root.overviewLoading #overviewUnit,
+:root.overviewLoading #overviewDetail {
+    background-color: var(--popup-skeleton-bg);
+    border-radius: 6px;
+    color: transparent;
+    overflow: hidden;
+    position: relative;
+}
+
+:root.overviewLoading #overviewCount::after,
+:root.overviewLoading #overviewUnit::after,
+:root.overviewLoading #overviewDetail::after {
+    animation: shimmer 1.5s infinite;
+    background: linear-gradient(90deg, transparent, var(--popup-skeleton-shine), transparent);
+    content: "";
+    inset: 0;
+    position: absolute;
+    transform: translateX(-100%);
+}
+
+:root.overviewLoading #overviewCount {
+    display: inline-block;
+    height: 19px;
+    width: 34px;
+}
+
+:root.overviewLoading #overviewUnit {
+    display: inline-block;
+    height: 12px;
+    width: 78px;
+}
+
+:root.overviewLoading #overviewDetail {
+    height: 13px;
+    width: min(100%, 238px);
+}
+
+:root.protectionOff #overviewCount {
+    display: none;
 }
 
 #overviewUnit {
@@ -244,26 +358,31 @@ h1 {
 }
 
 .overview-action {
+    -webkit-appearance: none;
     align-items: center;
-    background: rgb(255 255 255 / 0.38);
+    appearance: none;
+    background: var(--popup-overview-action-bg);
+    block-size: 28px;
     border: 0.5px solid rgb(var(--popup-border-rgb) / 0.10);
-    border-radius: 8px;
+    border-radius: 7px;
     color: var(--popup-text-000);
     cursor: pointer;
     display: inline-flex;
-    gap: 3px;
+    gap: 2px;
     height: 28px;
-    padding: 0 8px 0 10px;
-    transition: background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
-}
-
-:root.dark .overview-action {
-    background: rgb(255 255 255 / 0.08);
+    line-height: 1;
+    margin: 0;
+    max-block-size: 28px;
+    min-block-size: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0 7px 0 9px;
+    transition: background-color 120ms ease, border-color 120ms ease, transform 100ms ease;
 }
 
 .overview-action:hover {
-    background: var(--popup-control-bg-hover);
-    border-color: rgb(var(--popup-border-rgb) / 0.18);
+    background: var(--popup-overview-action-bg-hover);
+    border-color: rgb(var(--popup-border-rgb) / 0.16);
 }
 
 .overview-action:active {
@@ -271,8 +390,8 @@ h1 {
 }
 
 .overview-action span {
-    font-size: 12px;
-    font-weight: 650;
+    font-size: 11.5px;
+    font-weight: 560;
     letter-spacing: 0;
     line-height: 1;
     white-space: nowrap;
@@ -280,8 +399,8 @@ h1 {
 
 .overview-action svg {
     color: var(--popup-text-400);
-    height: 14px;
-    width: 14px;
+    height: 13px;
+    width: 13px;
 }
 
 .toolMenu {
@@ -341,8 +460,8 @@ h1 {
 }
 
 .toolMenu > .tool.active-tool .tool-icon {
-    background: var(--popup-danger-soft);
-    color: var(--popup-danger);
+    background: transparent;
+    color: currentColor;
 }
 
 .toolMenu > .tool:active {
@@ -351,9 +470,9 @@ h1 {
 
 .tool-icon {
     align-items: center;
-    background: var(--popup-icon-bg);
+    background: transparent;
     border-radius: 8px;
-    color: var(--popup-accent);
+    color: currentColor;
     display: inline-flex;
     height: 28px;
     justify-content: center;
@@ -363,6 +482,15 @@ h1 {
 .tool-icon svg {
     height: 18px;
     width: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root.overviewLoading #overviewCount::after,
+    :root.overviewLoading #overviewUnit::after,
+    :root.overviewLoading #overviewDetail::after {
+        animation: none;
+        transform: none;
+    }
 }
 
 .tool-copy {
@@ -407,6 +535,10 @@ h1 {
     margin: 0;
     overflow-wrap: anywhere;
     padding: 10px 14px 12px;
+}
+
+.nonHTTPNotice {
+    border-top: 0;
 }
 
 :root.isHTTP .nonHTTPNotice {
