@@ -12,6 +12,10 @@
 
 /******************************************************************************/
 
+const HIGHLIGHT_RADIUS_PX = 8;
+
+/******************************************************************************/
+
 if ( self.adblockElementRemover?.stop instanceof Function ) {
     self.adblockElementRemover.stop();
 }
@@ -62,7 +66,22 @@ function rectPath(rect) {
     const width = Math.max(0, right - left);
     const height = Math.max(0, bottom - top);
     if ( width === 0 || height === 0 ) { return ''; }
-    return `M${left} ${top}h${width}v${height}h-${width}z`;
+    const radius = Math.min(HIGHLIGHT_RADIUS_PX, width / 2, height / 2);
+    if ( radius === 0 ) {
+        return `M${left} ${top}h${width}v${height}h-${width}z`;
+    }
+    return [
+        `M${left + radius} ${top}`,
+        `H${right - radius}`,
+        `Q${right} ${top} ${right} ${top + radius}`,
+        `V${bottom - radius}`,
+        `Q${right} ${bottom} ${right - radius} ${bottom}`,
+        `H${left + radius}`,
+        `Q${left} ${bottom} ${left} ${bottom - radius}`,
+        `V${top + radius}`,
+        `Q${left} ${top} ${left + radius} ${top}`,
+        'Z',
+    ].join('');
 }
 
 function isVisibleRect(rect) {
@@ -138,11 +157,13 @@ const remover = {
                     --remover-text-400: #817f79;
                     --remover-border-rgb: 31 31 29;
                     --remover-accent: #2f6fe4;
+                    --remover-toolbar-bg: rgb(248 248 246 / 0.80);
+                    --remover-toolbar-hover-bg: rgb(255 255 255 / 0.72);
+                    --remover-z-header: 20;
                     contain: layout style paint;
                     font: 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
                 }
                 svg {
-                    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='M6 6L14 14M14 6L6 14' stroke='%2352524d' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") 10 10, pointer;
                     height: 100%;
                     inset: 0;
                     position: fixed;
@@ -158,18 +179,42 @@ const remover = {
                     stroke-width: 1.5px;
                 }
                 .toolbar {
+                    -webkit-backdrop-filter: blur(8px);
+                    align-items: center;
+                    backdrop-filter: blur(8px);
+                    background: var(--remover-toolbar-bg);
+                    border-radius: 0.6rem;
                     display: flex;
-                    flex-direction: column;
-                    gap: 4px;
+                    flex-direction: row;
+                    gap: 6px;
+                    padding: 2px;
+                    position: absolute;
+                    right: 14px;
+                    top: 12px;
+                    z-index: var(--remover-z-header);
+                }
+                .hint {
                     background: var(--remover-bg-000);
-                    border: 0.5px solid rgb(var(--remover-border-rgb) / 0.18);
+                    border: 0.5px solid rgb(var(--remover-border-rgb) / 0.16);
                     border-radius: 12px;
-                    box-shadow: 0 10px 26px rgba(20, 20, 18, 0.14);
-                    padding: 5px;
+                    bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+                    box-shadow:
+                        0 0 0 1px rgb(var(--remover-border-rgb) / 0.08),
+                        0 8px 24px rgba(20, 20, 18, 0.12),
+                        0 2px 6px rgba(20, 20, 18, 0.08);
+                    color: var(--remover-text-000);
+                    font-size: 13px;
+                    font-weight: 560;
+                    left: 50%;
+                    letter-spacing: 0;
+                    line-height: 1.25;
+                    padding: 8px 12px;
+                    pointer-events: none;
                     position: fixed;
-                    right: 10px;
-                    top: 50%;
-                    transform: translateY(-50%);
+                    transform: translateX(-50%);
+                    user-select: none;
+                    white-space: nowrap;
+                    z-index: 1;
                 }
                 button {
                     align-items: center;
@@ -180,14 +225,14 @@ const remover = {
                     color: var(--remover-text-000);
                     cursor: pointer;
                     display: flex;
-                    height: 34px;
+                    height: 32px;
                     justify-content: center;
                     padding: 0;
                     transition: background-color 160ms ease, color 160ms ease, transform 120ms ease;
-                    width: 34px;
+                    width: 32px;
                 }
                 button:hover {
-                    background: var(--remover-bg-100);
+                    background: var(--remover-toolbar-hover-bg);
                 }
                 button:active {
                     transform: scale(0.985);
@@ -214,6 +259,8 @@ const remover = {
                         --remover-text-400: #a09d94;
                         --remover-border-rgb: 244 243 239;
                         --remover-accent: #8db2ff;
+                        --remover-toolbar-bg: rgb(31 31 29 / 0.80);
+                        --remover-toolbar-hover-bg: rgb(255 255 255 / 0.08);
                     }
                     .ocean {
                         fill: rgba(0, 0, 0, 0.34);
@@ -232,6 +279,7 @@ const remover = {
                 <path class="ocean"></path>
                 <path class="highlight"></path>
             </svg>
+            <div class="hint">按一下要隱藏的元素</div>
             <div class="toolbar" data-adblock-control>
                 <button type="button" id="close" title="結束移除元素">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
