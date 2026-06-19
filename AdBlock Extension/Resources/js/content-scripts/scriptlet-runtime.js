@@ -1333,14 +1333,44 @@ function trustedOverrideElementMethod(path = '', selector = '') {
     });
 }
 
-function trustedPreventDomBypass(path = '', needle = '') {
+function trustedPreventDomBypass(path = '', targetProp = '') {
     const target = methodTarget(path);
     if ( target === undefined ) { return; }
     target.owner[target.prop] = new Proxy(target.fn, {
         apply(fnTarget, thisArg, args) {
-            const text = args.map(arg => String(arg)).join(' ');
-            if ( matchesPattern(text, needle) ) { return args[0]; }
-            return Reflect.apply(fnTarget, thisArg, args);
+            const result = Reflect.apply(fnTarget, thisArg, args);
+            const elems = new Set(args.filter(arg =>
+                self.HTMLElement instanceof Function &&
+                arg instanceof self.HTMLElement
+            ));
+            if ( elems.size === 0 ) { return result; }
+            for ( const elem of elems ) {
+                try {
+                    if ( `${elem.contentWindow}` !== '[object Window]' ) { continue; }
+                    const { href } = elem.contentWindow.location;
+                    if ( href !== 'about:blank' && href !== self.location.href ) {
+                        continue;
+                    }
+                    if ( targetProp !== '' ) {
+                        const parts = pathParts(targetProp);
+                        const prop = parts.pop();
+                        let source = self;
+                        let destination = elem.contentWindow;
+                        for ( const part of parts ) {
+                            source = source?.[part];
+                            destination = destination?.[part];
+                            if ( source === undefined || destination === undefined ) { break; }
+                        }
+                        if ( source !== undefined && destination !== undefined ) {
+                            destination[prop] = source[prop];
+                        }
+                    } else {
+                        define(elem, 'contentWindow', { value: self });
+                    }
+                } catch {
+                }
+            }
+            return result;
         },
     });
 }

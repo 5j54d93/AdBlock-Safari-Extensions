@@ -31,7 +31,7 @@ import { registerToolbarIconToggler } from './action.js';
 /******************************************************************************/
 
 const detailCache = new Map();
-const CONTENT_SCRIPT_REGISTRATION_VERSION = 11;
+const CONTENT_SCRIPT_REGISTRATION_VERSION = 14;
 const CONTENT_SCRIPT_REGISTRATION_VERSION_KEY = 'scripting.manager.registration.version';
 const CSS_CACHE_PREFIX = 'cache.css.';
 const CSS_SPECIFIC_PREFIX = 'css.specific.';
@@ -47,6 +47,12 @@ const GOOGLE_SEARCH_EXCLUDE_MATCHES = [
 ];
 const YAHOO_HOSTNAME = 'yahoo.com';
 const SKIP_SAFARI_BROAD_CONTENT_SCRIPTS = webextFlavor === 'safari';
+const SCRIPTLET_COMPATIBILITY_EXCLUDED_HOSTNAMES = [
+    'facebook.com',
+];
+const SCRIPTLET_COMPATIBILITY_EXCLUDE_MATCHES = hostnames.matchesFromHostnames(
+    SCRIPTLET_COMPATIBILITY_EXCLUDED_HOSTNAMES
+);
 
 /******************************************************************************/
 
@@ -330,8 +336,14 @@ function addScriptletScripts(context, scriptletDetails) {
             const excludeMatches = [];
 
             if ( hasBroadPermission ) {
-                targetHostnames = rulesetHostnames;
-                excludeMatches.push(...excludedByMode);
+                targetHostnames = hostnames.subtractHostnameIters(
+                    rulesetHostnames,
+                    SCRIPTLET_COMPATIBILITY_EXCLUDED_HOSTNAMES
+                );
+                excludeMatches.push(
+                    ...excludedByMode,
+                    ...SCRIPTLET_COMPATIBILITY_EXCLUDE_MATCHES
+                );
             } else if ( explicitlyAllowed.length !== 0 ) {
                 targetHostnames = rulesetHostnames.includes('*')
                     ? explicitlyAllowed
@@ -339,6 +351,10 @@ function addScriptletScripts(context, scriptletDetails) {
                         rulesetHostnames,
                         explicitlyAllowed
                     );
+                targetHostnames = hostnames.subtractHostnameIters(
+                    targetHostnames,
+                    SCRIPTLET_COMPATIBILITY_EXCLUDED_HOSTNAMES
+                );
             }
 
             if ( targetHostnames.length === 0 ) { continue; }
