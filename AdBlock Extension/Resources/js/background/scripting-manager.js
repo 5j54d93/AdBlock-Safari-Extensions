@@ -31,20 +31,11 @@ import { registerToolbarIconToggler } from './action.js';
 /******************************************************************************/
 
 const detailCache = new Map();
-const CONTENT_SCRIPT_REGISTRATION_VERSION = 14;
+const CONTENT_SCRIPT_REGISTRATION_VERSION = 15;
 const CONTENT_SCRIPT_REGISTRATION_VERSION_KEY = 'scripting.manager.registration.version';
 const CSS_CACHE_PREFIX = 'cache.css.';
 const CSS_SPECIFIC_PREFIX = 'css.specific.';
 const LEGACY_CSS_PROCEDURAL_PREFIX = 'css.procedural.';
-const GOOGLE_SEARCH_GUARD = '/js/content-scripts/google-search-guard.js';
-const GOOGLE_SEARCH_EXCLUDE_MATCHES = [
-    '*://google.com/*',
-    '*://www.google.com/*',
-    '*://*.google.com/*',
-    '*://google.com.tw/*',
-    '*://www.google.com.tw/*',
-    '*://*.google.com.tw/*',
-];
 const YAHOO_HOSTNAME = 'yahoo.com';
 const SKIP_SAFARI_BROAD_CONTENT_SCRIPTS = webextFlavor === 'safari';
 const SCRIPTLET_COMPATIBILITY_EXCLUDED_HOSTNAMES = [
@@ -85,18 +76,6 @@ function normalizeMatches(matches) {
     matches.push('<all_urls>');
 }
 
-function appendExcludeMatches(directive, matches) {
-    if ( matches.length === 0 ) { return; }
-    directive.excludeMatches = Array.from(new Set([
-        ...matches,
-        ...(directive.excludeMatches || []),
-    ]));
-}
-
-function excludeGoogleSearchHost(directive) {
-    appendExcludeMatches(directive, GOOGLE_SEARCH_EXCLUDE_MATCHES);
-}
-
 function hasBroadMatches(matches = []) {
     return matches.includes('<all_urls>') || matches.includes('*://*/*');
 }
@@ -111,8 +90,7 @@ function isExplicitHostname(hostname) {
 
 function safariExplicitHostnames(hostnameIters) {
     const hostnameSet = new Set(
-        hostnames.withoutGoogleSearchHostnames(hostnameIters)
-            .filter(isExplicitHostname)
+        Array.from(hostnameIters).filter(isExplicitHostname)
     );
 
     // Ancestor hostnames cover descendants in extension match patterns.
@@ -149,7 +127,6 @@ function addGenericCosmeticScripts(context, genericDetails) {
     const excludedByFilter = [];
     const includedByFilter = [];
     const js = [
-        GOOGLE_SEARCH_GUARD,
         '/js/content-scripts/css-api.js',
         '/js/content-scripts/isolated-api.js',
     ];
@@ -167,24 +144,20 @@ function addGenericCosmeticScripts(context, genericDetails) {
         }
     }
 
-    if ( js.length === 3 ) { return; }
+    if ( js.length === 2 ) { return; }
     js.push('/js/content-scripts/css-generic.js');
 
     const { none, basic, optimal, complete } = filteringModeDetails;
-    const includedByMode = hostnames.withoutGoogleSearchHostnames(complete);
+    const includedByMode = complete;
     const excludedByMode = [ ...none, ...basic, ...optimal ];
 
     if ( complete.has('all-urls') === false ) {
         const matches = [
             ...hostnames.matchesFromHostnames(
-                hostnames.withoutGoogleSearchHostnames(
-                    hostnames.subtractHostnameIters(includedByMode, excludedByFilter)
-                )
+                hostnames.subtractHostnameIters(includedByMode, excludedByFilter)
             ),
             ...hostnames.matchesFromHostnames(
-                hostnames.withoutGoogleSearchHostnames(
-                    hostnames.intersectHostnameIters(includedByMode, includedByFilter)
-                )
+                hostnames.intersectHostnameIters(includedByMode, includedByFilter)
             ),
         ];
         if ( matches.length === 0 ) { return; }
@@ -194,7 +167,6 @@ function addGenericCosmeticScripts(context, genericDetails) {
             allFrames: true,
             matches,
             runAt: 'document_idle',
-            excludeMatches: GOOGLE_SEARCH_EXCLUDE_MATCHES,
         });
         return;
     }
@@ -213,14 +185,11 @@ function addGenericCosmeticScripts(context, genericDetails) {
     if ( excludeMatches.length !== 0 ) {
         allDirective.excludeMatches = excludeMatches;
     }
-    excludeGoogleSearchHost(allDirective);
     addContentScript(context, allDirective);
 
     const targetedMatches = [
         ...hostnames.matchesFromHostnames(
-            hostnames.withoutGoogleSearchHostnames(
-                hostnames.subtractHostnameIters(includedByFilter, excludedByMode)
-            )
+            hostnames.subtractHostnameIters(includedByFilter, excludedByMode)
         ),
     ];
     if ( targetedMatches.length === 0 ) { return; }
@@ -231,7 +200,6 @@ function addGenericCosmeticScripts(context, genericDetails) {
         matches: targetedMatches,
         runAt: 'document_idle',
     };
-    excludeGoogleSearchHost(targetedDirective);
     addContentScript(context, targetedDirective);
 }
 
@@ -252,10 +220,7 @@ async function addSpecificCosmeticScripts(context) {
 
     const { none, basic, optimal, complete } = filteringModeDetails;
     const matches = hostnames.matchesFromHostnames(
-        hostnames.withoutGoogleSearchHostnames([
-            ...optimal,
-            ...complete,
-        ])
+        [ ...optimal, ...complete ]
     );
     if ( matches.length === 0 ) { return; }
 
@@ -279,7 +244,6 @@ async function addSpecificCosmeticScripts(context) {
     if ( matches.length === 0 ) { return; }
 
     const js = [
-        GOOGLE_SEARCH_GUARD,
         '/js/content-scripts/css-api.js',
         '/js/content-scripts/isolated-api.js',
         ...rulesetIds.map(id => `/rulesets/scripting/specific/${id}.js`),
@@ -307,7 +271,6 @@ async function addSpecificCosmeticScripts(context) {
     if ( excludeMatches.length !== 0 ) {
         directive.excludeMatches = excludeMatches;
     }
-    excludeGoogleSearchHost(directive);
     addContentScript(context, directive);
 }
 
@@ -360,7 +323,7 @@ function addScriptletScripts(context, scriptletDetails) {
             if ( targetHostnames.length === 0 ) { continue; }
             targetHostnames = SKIP_SAFARI_BROAD_CONTENT_SCRIPTS
                 ? safariExplicitHostnames(targetHostnames)
-                : hostnames.withoutGoogleSearchHostnames(targetHostnames);
+                : targetHostnames;
             if ( targetHostnames.length === 0 ) { continue; }
 
             const matches = [
@@ -371,7 +334,6 @@ function addScriptletScripts(context, scriptletDetails) {
             const directive = {
                 id: `${rulesetId}.${world.toLowerCase()}`,
                 js: [
-                    GOOGLE_SEARCH_GUARD,
                     '/js/content-scripts/scriptlet-runtime.js',
                     `/rulesets/scripting/scriptlet/${world.toLowerCase()}/${rulesetId}.js`,
                 ],
@@ -384,7 +346,6 @@ function addScriptletScripts(context, scriptletDetails) {
             if ( excludeMatches.length !== 0 ) {
                 directive.excludeMatches = excludeMatches;
             }
-            excludeGoogleSearchHost(directive);
             addContentScript(context, directive);
         }
     }
@@ -431,7 +392,6 @@ function addAdSlotCollapser(context) {
     const directive = {
         id: 'ad-slot-collapser',
         js: [
-            GOOGLE_SEARCH_GUARD,
             '/js/content-scripts/ad-slot-collapser.js',
         ],
         matches,

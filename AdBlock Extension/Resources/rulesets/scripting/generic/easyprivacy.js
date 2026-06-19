@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 2 */[[53586,"#cxense-recs-in-article"],[40052,".embed-responsive-trendmd"]]);
 const highlyGeneric = /* 0 */"";

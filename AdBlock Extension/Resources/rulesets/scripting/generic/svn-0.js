@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 4 */[[19779,".cookie-screen"],[32449,".friendly.notice"],[47461,"#eu-cookies-consent"],[19452,"#eu-okno"]]);
 const highlyGeneric = /* 0 */"";

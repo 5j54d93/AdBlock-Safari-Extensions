@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 2 */[[9831,".article-share"],[63225,".article-share__item"]]);
 const highlyGeneric = /* 7 */"A[href*=\"http://pay4results24.eu\"],\niframe[src*=\"cherrystatic.net\"],\niframe[src*=\"date.elu24.ee\"],\nIFRAME[src*=\"sale24.ee\"],\niframe[src*=\"static.chilli.ee\"],\niframe[src*=\"superdeal.ee\"],\niframe[src*=\"hotelliveeb.ee\"]";

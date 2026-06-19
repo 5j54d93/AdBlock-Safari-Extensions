@@ -70,22 +70,6 @@ export function subtractHostnameIters(hostnames, ancestors) {
     );
 }
 
-export function isGoogleSearchHostname(hostname) {
-    const value = String(hostname || '').toLowerCase();
-    return value === 'google.com' ||
-        value.endsWith('.google.com') ||
-        value === 'google.com.tw' ||
-        value.endsWith('.google.com.tw');
-}
-
-export function withoutGoogleSearchHostnames(hostnames) {
-    return Array.from(hostnames).filter(hostname =>
-        isGoogleSearchHostname(hostname) === false
-    );
-}
-
-/******************************************************************************/
-
 export function matchFromHostname(hostname) {
     return hostname === '*' || hostname === 'all-urls'
         ? '<all_urls>'

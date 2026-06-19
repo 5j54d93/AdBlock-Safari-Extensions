@@ -8,7 +8,6 @@
 
 (function adblockPreventPopupData() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
     const details = {"id":"spa-1","block":{"hostnames":["bcgame.top","ads.impulsosocial.online","crummydevioussucculent.com"],"regexes":[]},"allow":{"hostnames":[],"regexes":[]}};
 

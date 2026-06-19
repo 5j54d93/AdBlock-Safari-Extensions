@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 42 */[[1275,"#ad_popup"],[59419,"#adRectangle"],[60256,"#onlajny-stickers"],[10624,"#promo-box"],[19810,"#reklama-etarget"],[2331,"#reklamni-box"],[15841,"#reklamy"],[48368,"#sklik"],[31243,"#slevomat_ad"],[24947,"#topbanner"],[29355,"#zivefirmy"],[45393,".adform-adbox"],[14401,".bx-leaderboard"],[5532,".cnc-ads"],[3869,".etarget"],[25079,".hp-advert"],[61701,".jobscz"],[56213,".lsads-banner"],[63618,".nativead"],[8568,".ownad"],[10528,".perex-adblock-warning"],[45244,".r-main"],[55277,".reklama-3"],[33024,".reklama-bottom"],[10310,".reklama-box"],[22993,".reklama-left"],[19524,".reklama-lista"],[39957,".reklama-megaboard"],[9307,".reklama-right"],[9496,".reklama-top"],[20396,".reklamaBottom"],[59882,".reklamaHorniLista"],[31962,".reklama_ahead"],[17901,".reklama_square"],[38066,".rklm"],[11261,".sklik"],[53719,".sklik-block"],[10601,".sklik-box"],[51482,".sklik_left"],[36048,".sklik_right"],[43396,".topreklama"],[59437,".vreklama"]]);
 const highlyGeneric = /* 4 */"[id^=\"etarget\"],\n[id^=\"aswift\"],\n[id^=\"sklikReklama\"],\n[id^=\"sm-ad\"]";

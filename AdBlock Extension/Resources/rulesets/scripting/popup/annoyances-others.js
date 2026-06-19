@@ -8,7 +8,6 @@
 
 (function adblockPreventPopupData() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
     const details = {"id":"annoyances-others","block":{"hostnames":[],"regexes":["ifinanza","^[^:]+:\\/\\/([^:/]+\\.)?finanzaonline\\.com\\/notizie\\/popup_news"]},"allow":{"hostnames":[],"regexes":[]}};
 

@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 2 */[[56789,"#gist-answers-widget"],[46697,"#kapa-widget-container"]]);
 const highlyGeneric = /* 0 */"";

@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 18 */[[15560,"html[lang=\"tr\"] > body.has-footer-ad.has-pageskin-desktop a.pageskin-mobile-wrapper"],[46073,"body > #js-adContainer.adBlock"],[27588,"#mobile-adhesion:not(#style_important)"],[25889,"#ad-300x250_mid_mobile"],[34037,".sp_ad_box_top"],[15075,".happy-header-mobile"],[23220,".standard-article-vertical-ad"],[18072,".header-ad-mobile"],[8358,".under-player-ad-mobile"],[44580,".california-sticky-footer-ad-container"],[5821,".happy-under-player-mobile"],[9000,".b-mobile-spots"],[45255,"#ad_inview_area"],[54745,"body > div.page[data-kochava-app-guid^=\"kotegna-web-prod-\"] > .page__top > .universal-ad"],[56854,"#mgid_iframe1"],[8380,".amp-ad container"],[29966,".amp_ad"],[59787,"#ad-300x250_mobile"]]);
 const highlyGeneric = /* 16 */"amp-iframe[src^=\"https://ad.vidverto.io/\"],\ndiv[class^=\"MidArticleAdUnit_mobile_\"],\ndiv[class^=\"PrimisMidArticleAdUnit_mobile_\"],\nimg[width=\"320\"][height=\"50\"],\niframe[width=\"320\"][height=\"50\"],\namp-iframe[src^=\"https://html.redtram.com/\"],\namp-auto-ads,\namp-embed[type=\"24smi\"],\namp-embed[type=\"smi2\"],\namp-embed[type=\"outbrain\"],\namp-embed[type=\"engageya\"],\namp-iframe[src^=\"https://ad.mediawayss.com/\"],\namp-iframe[src^=\"https://widgets.outbrain.com\"],\namp-sticky-ad,\namp-ad,\nbody > style + div[id=\"ics\"]";

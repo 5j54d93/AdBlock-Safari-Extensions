@@ -10,42 +10,6 @@
 
 'use strict';
 
-if ( self.__adblockSkipGoogleSearch === true ) {
-    self.adblockRunScriptlets = undefined;
-    self.__adblockScriptletState = undefined;
-    return;
-}
-
-function isGoogleSearchPage() {
-    const { hostname, pathname, search } = document.location;
-    const normalizedHostname = String(hostname || '').toLowerCase();
-    const isGoogle =
-        normalizedHostname === 'google.com' ||
-        /(^|\.)google\.[a-z.]+$/.test(normalizedHostname);
-
-    if ( isGoogle === false ) { return false; }
-    if ( pathname === '/search' || pathname === '/webhp' ) { return true; }
-    return pathname === '/' && /(?:^|[?&])q=/.test(search);
-}
-
-function reportGoogleSearchSkip() {
-    try {
-        chrome.runtime.sendMessage({
-            what: 'googleSearchContentScriptSkipped',
-            scriptName: 'scriptlet-runtime',
-            url: document.location.href,
-        }).catch(( ) => {});
-    } catch {
-    }
-}
-
-if ( isGoogleSearchPage() ) {
-    reportGoogleSearchSkip();
-    self.adblockRunScriptlets = undefined;
-    self.__adblockScriptletState = undefined;
-    return;
-}
-
 if ( self.adblockRunScriptlets instanceof Function ) { return; }
 
 /******************************************************************************/

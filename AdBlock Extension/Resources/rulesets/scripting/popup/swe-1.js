@@ -8,7 +8,6 @@
 
 (function adblockPreventPopupData() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
     const details = {"id":"swe-1","block":{"hostnames":[],"regexes":["i/offer?","\\/offer\\?prod"]},"allow":{"hostnames":[],"regexes":[]}};
 

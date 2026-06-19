@@ -11,10 +11,7 @@ import {
     webextFlavor,
 } from '../shared/ext.js';
 
-import {
-    matchesFromHostnames,
-    withoutGoogleSearchHostnames,
-} from '../shared/utils.js';
+import { matchesFromHostnames } from '../shared/utils.js';
 
 /******************************************************************************/
 
@@ -36,15 +33,6 @@ const ICON_DISABLED = {
     72: '/images/toolbar-icon-off-72.png',
 };
 
-const GOOGLE_SEARCH_GUARD = '/js/content-scripts/google-search-guard.js';
-const GOOGLE_SEARCH_EXCLUDE_MATCHES = [
-    '*://google.com/*',
-    '*://www.google.com/*',
-    '*://*.google.com/*',
-    '*://google.com.tw/*',
-    '*://www.google.com.tw/*',
-    '*://*.google.com.tw/*',
-];
 const SKIP_SAFARI_BROAD_CONTENT_SCRIPTS = webextFlavor === 'safari';
 
 let reverseMode = false;
@@ -89,7 +77,7 @@ export async function registerToolbarIconToggler(context) {
     const { none } = filteringModeDetails;
 
     const reverseModeAfter = none.has('all-urls');
-    const hostnames = withoutGoogleSearchHostnames(reverseModeAfter
+    const hostnames = Array.from(reverseModeAfter
         ? hostnamesForReverseMode(filteringModeDetails)
         : new Set(none));
 
@@ -103,11 +91,9 @@ export async function registerToolbarIconToggler(context) {
     const directive = {
         id: 'toolbar-icon',
         js: [
-            GOOGLE_SEARCH_GUARD,
             '/js/content-scripts/toolbar-icon.js',
         ],
         matches: matchesFromHostnames(hostnames),
-        excludeMatches: GOOGLE_SEARCH_EXCLUDE_MATCHES,
         runAt: 'document_start',
     };
     if (

@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 0 */undefined);
 const highlyGeneric = /* 2 */"a[href=\"http://www.salidzini.lv/\"][style=\"display: block; width: 120px; height: 40px; overflow: hidden; position: relative;\"],\na[href=\"http://www.salidzini.lv/\"][style=\"display: block; width: 88px; height: 31px; overflow: hidden; position: relative;\"]";

@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 3 */[[21195,".adsbox"],[16879,"DIV.agores300"],[39349,"TABLE.advright"]]);
 const highlyGeneric = /* 5 */"A[href*=\"adman.otenet.gr/click?\"],\nA[href*=\"http://affiliates.stanjamesaffiliates.com/\"],\nA[href*=\"http://axiabanners.exodus.gr/\"],\nA[href*=\"http://interactive.forthnet.gr/click?\"],\nA[href*=\"serve.williamhill.com/\"]";

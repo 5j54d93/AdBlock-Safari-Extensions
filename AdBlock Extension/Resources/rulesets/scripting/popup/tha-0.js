@@ -8,7 +8,6 @@
 
 (function adblockPreventPopupData() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
     const details = {"id":"tha-0","block":{"hostnames":["35.193.89.147"],"regexes":[]},"allow":{"hostnames":[],"regexes":[]}};
 

@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 17 */[[39148,".zxc,\n.zxc"],[31818,".zxc-m"],[56783,".zxc-stik"],[17047,".zxc_home"],[12311,".zxc_news"],[15011,".zxc_left"],[1038,".zxc_matni"],[52734,".zxc-mobile"],[32032,".zxc-header-zxc"],[32468,".zxc-visible-fixed"],[29270,".zxc-padding-custom,\n.zxc-padding-custom"],[60033,".main-zxc"],[49509,".home-zxc"],[39324,".top_zxc"],[15708,".zxc_top"],[53269,".side_txt_zxc"],[54363,"#kaprila_linktable"]]);
 const highlyGeneric = /* 2 */"a[href^=\"https://arongroups.site/\"],\na[href^=\"https://arongroups.co/\"]";

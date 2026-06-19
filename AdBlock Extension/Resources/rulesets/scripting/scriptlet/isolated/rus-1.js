@@ -11,7 +11,6 @@
 
 (function adblockGeneratedScriptlets() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 'use strict';
 

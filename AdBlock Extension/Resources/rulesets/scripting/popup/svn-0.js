@@ -8,7 +8,6 @@
 
 (function adblockPreventPopupData() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
     const details = {"id":"svn-0","block":{"hostnames":["triglav.si","hit.gemius.pl","triglavtek.si"],"regexes":[]},"allow":{"hostnames":[],"regexes":[]}};
 

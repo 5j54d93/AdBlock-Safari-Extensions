@@ -21,7 +21,6 @@ import {
     intersectHostnameIters,
     matchesFromHostnames,
     subtractHostnameIters,
-    withoutGoogleSearchHostnames,
 } from '../shared/utils.js';
 
 import {
@@ -36,15 +35,6 @@ import { getFilteringModeDetails } from './filtering-mode-service.js';
 const SITE_KEY_PREFIX = 'site.';
 const USER_SCRIPT_ISOLATED_ID = 'user.isolated';
 const USER_SCRIPT_MAIN_ID = 'user.main';
-const GOOGLE_SEARCH_GUARD = '/js/content-scripts/google-search-guard.js';
-const GOOGLE_SEARCH_EXCLUDE_MATCHES = [
-    '*://google.com/*',
-    '*://www.google.com/*',
-    '*://*.google.com/*',
-    '*://google.com.tw/*',
-    '*://www.google.com.tw/*',
-    '*://*.google.com.tw/*',
-];
 const SKIP_SAFARI_BROAD_CONTENT_SCRIPTS = webextFlavor === 'safari';
 
 const isProceduralSelector = selector => selector.startsWith('{');
@@ -195,7 +185,6 @@ export async function injectCustomFilters(tabId, frameId, hostname) {
         injections.push(
             browser.scripting.executeScript({
                 files: [
-                    GOOGLE_SEARCH_GUARD,
                     '/js/content-scripts/css-api.js',
                     '/js/content-scripts/css-procedural-api.js',
                 ],
@@ -230,14 +219,12 @@ function getHostnamesEligibleForCustomCSS(customFilters, filteringModeDetails) {
         excludeHostnames = Array.from(none);
     }
 
-    hostnames = withoutGoogleSearchHostnames(
-        hostnames.filter(hostname =>
-            customFilters.get(hostname)
-                .some(selector =>
-                    isPlainCSSSelector(selector) ||
-                    isProceduralSelector(selector)
-                )
-        )
+    hostnames = hostnames.filter(hostname =>
+        customFilters.get(hostname)
+            .some(selector =>
+                isPlainCSSSelector(selector) ||
+                isProceduralSelector(selector)
+            )
     );
 
     return { hostnames, excludeHostnames };
@@ -260,7 +247,6 @@ export async function registerCustomFilters(context) {
     const directive = {
         id: 'css-user',
         js: [
-            GOOGLE_SEARCH_GUARD,
             '/js/content-scripts/css-user.js',
         ],
         matches: matchesFromHostnames(hostnames),
@@ -272,10 +258,6 @@ export async function registerCustomFilters(context) {
     if ( excludeHostnames.length !== 0 ) {
         directive.excludeMatches = matchesFromHostnames(excludeHostnames);
     }
-    directive.excludeMatches = Array.from(new Set([
-        ...GOOGLE_SEARCH_EXCLUDE_MATCHES,
-        ...(directive.excludeMatches || []),
-    ]));
 
     if ( shouldSkipBroadContentScript(directive) ) { return; }
     context.toAdd.push(directive);
@@ -363,10 +345,7 @@ async function userScriptMatches() {
 
     return {
         matches,
-        excludeMatches: Array.from(new Set([
-            ...GOOGLE_SEARCH_EXCLUDE_MATCHES,
-            ...excludeMatches,
-        ])),
+        excludeMatches,
     };
 }
 

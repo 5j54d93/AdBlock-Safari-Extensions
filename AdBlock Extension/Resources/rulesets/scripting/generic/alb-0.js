@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 6 */[[11530,".grecaptcha-badge"],[59215,"#gdpr-banner"],[57060,".gdpr-popup"],[26187,".td-more-articles-box"],[6943,".cc-type-info"],[27398,"#iframe_cookie"]]);
 const highlyGeneric = /* 0 */"";

@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 7 */[[33561,"#ea_intext_div"],[62501,"td#freenet_table_ads"],[7167,".lapni-pop-over"],[16796,"#xenium_hot_offers"],[9208,"#banner_ad"],[34288,"#adbody"],[51615,"#newAd,\n#newAd"]]);
 const highlyGeneric = /* 0 */"";

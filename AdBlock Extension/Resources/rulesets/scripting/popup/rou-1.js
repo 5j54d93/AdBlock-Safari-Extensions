@@ -8,7 +8,6 @@
 
 (function adblockPreventPopupData() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
     const details = {"id":"rou-1","block":{"hostnames":["terrapops.com","magazinuldecase.ro"],"regexes":[]},"allow":{"hostnames":[],"regexes":[]}};
 

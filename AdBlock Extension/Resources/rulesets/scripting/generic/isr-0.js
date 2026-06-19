@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 3 */[[35711,"#HiddenMovie > [src^=\"http://www.youtube.com\"] + #video-blocker"],[14271,".entry > .entry-inner > .wpvl.wpvl-youtube.ng-scope.size-l"],[3031,".wpvl.wpvl-dailymotion > .fblogin.lockoverlay.ng-scope,\n.wpvl.wpvl-youtube.ng-scope.size-xl > .ng-scope + .fblogin.lockoverlay.ng-scope,\n.wpvl.wpvl-youtube.ng-scope.size-xxl > [ng-show=\"!blocked\"] + * + .ng-scope + .fblogin.lockoverlay.ng-scope"]]);
 const highlyGeneric = /* 0 */"";

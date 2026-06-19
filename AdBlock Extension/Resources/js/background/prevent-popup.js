@@ -6,27 +6,18 @@ import { matchesFromHostnames } from '../shared/utils.js';
 
 /******************************************************************************/
 
-const GOOGLE_SEARCH_GUARD = '/js/content-scripts/google-search-guard.js';
-const GOOGLE_SEARCH_EXCLUDE_MATCHES = [
-    '*://google.com/*',
-    '*://www.google.com/*',
-    '*://*.google.com/*',
-    '*://google.com.tw/*',
-    '*://www.google.com.tw/*',
-    '*://*.google.com.tw/*',
-];
 const SKIP_SAFARI_BROAD_CONTENT_SCRIPTS = webextFlavor === 'safari';
 
 /******************************************************************************/
 
 export async function registerPreventPopup(context) {
     if ( runtimeSettings.popupBlockMode !== true ) { return; }
-    const js = [ GOOGLE_SEARCH_GUARD ];
+    const js = [];
     for ( const { id, popups } of context.rulesetsDetails ) {
         if ( popups === undefined ) { continue; }
         js.push(`/rulesets/scripting/popup/${id}.js`);
     }
-    if ( js.length === 1 ) { return; }
+    if ( js.length === 0 ) { return; }
     js.push(
         '/js/content-scripts/prevent-popup-target.js',
         '/js/content-scripts/prevent-popup.js'
@@ -47,10 +38,7 @@ export async function registerPreventPopup(context) {
         id: 'prevent-popup',
         js,
         matches: matchesFromHostnames(matches),
-        excludeMatches: Array.from(new Set([
-            ...GOOGLE_SEARCH_EXCLUDE_MATCHES,
-            ...matchesFromHostnames(excludeMatches),
-        ])),
+        excludeMatches: matchesFromHostnames(excludeMatches),
         runAt: 'document_start',
     };
     if (

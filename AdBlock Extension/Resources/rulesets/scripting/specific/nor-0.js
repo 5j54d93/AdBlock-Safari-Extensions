@@ -8,7 +8,6 @@
 
 (function adblockCssSpecificImports() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 /******************************************************************************/
 

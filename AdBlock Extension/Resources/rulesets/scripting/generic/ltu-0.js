@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 4 */[[3037,".baneriai"],[62301,".reklamos_nuorodos"],[50763,".reklamos_tarpas"],[65048,".top_reklama"]]);
 const highlyGeneric = /* 3 */"img[alt=\"Dedikuoti.lt serveriai\"],\nimg[alt=\"Hostingas Serveriai.lt\"],\nimg[alt=\"Reklaminis skydelis\"]";

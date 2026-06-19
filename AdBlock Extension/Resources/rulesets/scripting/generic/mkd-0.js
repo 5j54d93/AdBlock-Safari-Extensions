@@ -10,7 +10,6 @@
 
 (function adblockCssGenericImport() {
 
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
 
 const lowlyGeneric = new Map(/* 2 */[[33536,"#kae_unique_id_0"],[31619,".adsbygoogle"]]);
 const highlyGeneric = /* 1 */"[href^=\"https://d.linker.mk/link\"]";

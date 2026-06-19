@@ -10,43 +10,11 @@
 
 'use strict';
 
-/******************************************************************************/
-
-if ( self.__adblockSkipGoogleSearch === true ) { return; }
-
-function isGoogleSearchPage() {
-    const { hostname, pathname, search } = document.location;
-    const normalizedHostname = String(hostname || '').toLowerCase();
-    const isGoogle =
-        normalizedHostname === 'google.com' ||
-        /(^|\.)google\.[a-z.]+$/.test(normalizedHostname);
-
-    if ( isGoogle === false ) { return false; }
-    if ( pathname === '/search' || pathname === '/webhp' ) { return true; }
-    return pathname === '/' && /(?:^|[?&])q=/.test(search);
-}
-
-function reportGoogleSearchSkip() {
-    try {
-        chrome.runtime.sendMessage({
-            what: 'googleSearchContentScriptSkipped',
-            scriptName: 'css-generic',
-            url: document.location.href,
-        }).catch(( ) => {});
-    } catch {
-    }
-}
-
 const selectorMaps = self.genericSelectorMaps ?? [];
 self.genericSelectorMaps = undefined;
 
 const genericDetails = self.genericDetails ?? [];
 self.genericDetails = undefined;
-
-if ( isGoogleSearchPage() ) {
-    reportGoogleSearchSkip();
-    return;
-}
 
 if (
     document.documentElement === null ||
