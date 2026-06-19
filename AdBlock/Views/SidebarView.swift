@@ -12,11 +12,13 @@ struct SidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             List(selection: $selectedSection) {
-                Section("Safari 延伸功能") {
-                    ForEach(SettingsSection.allCases) { section in
-                        Label(section.title, systemImage: section.systemImage)
-                            .font(AppFont.sidebarItem)
-                            .tag(section)
+                ForEach(SettingsSectionGroup.allCases) { group in
+                    Section(group.title) {
+                        ForEach(group.sections) { section in
+                            Label(section.title, systemImage: section.systemImage)
+                                .font(AppFont.sidebarItem)
+                                .tag(section)
+                        }
                     }
                 }
             }
