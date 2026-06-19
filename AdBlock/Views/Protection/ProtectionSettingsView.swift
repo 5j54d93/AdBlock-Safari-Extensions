@@ -44,7 +44,12 @@ struct ProtectionSettingsView: View {
 
 private struct SiteExceptionsSection: View {
     @ObservedObject var viewModel: SettingsViewModel
-    @State private var isExpanded = false
+    @State private var isExpanded: Bool
+
+    init(viewModel: SettingsViewModel) {
+        self.viewModel = viewModel
+        _isExpanded = State(initialValue: viewModel.siteExceptionCount > 0)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
