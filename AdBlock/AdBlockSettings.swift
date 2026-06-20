@@ -82,6 +82,7 @@ struct AdBlockSettings: Codable, Equatable {
     var basicFilteringHostnames: [String]
     var optimalFilteringHostnames: [String]
     var completeFilteringHostnames: [String]
+    var siteExceptionOrder: [String]
     var customFilters: [CustomFilterEntry]
 
     init(
@@ -94,6 +95,7 @@ struct AdBlockSettings: Codable, Equatable {
         basicFilteringHostnames: [String],
         optimalFilteringHostnames: [String],
         completeFilteringHostnames: [String],
+        siteExceptionOrder: [String] = [],
         customFilters: [CustomFilterEntry] = []
     ) {
         self.revision = revision
@@ -105,6 +107,7 @@ struct AdBlockSettings: Codable, Equatable {
         self.basicFilteringHostnames = basicFilteringHostnames
         self.optimalFilteringHostnames = optimalFilteringHostnames
         self.completeFilteringHostnames = completeFilteringHostnames
+        self.siteExceptionOrder = siteExceptionOrder
         self.customFilters = customFilters
     }
 
@@ -118,6 +121,7 @@ struct AdBlockSettings: Codable, Equatable {
         case basicFilteringHostnames
         case optimalFilteringHostnames
         case completeFilteringHostnames
+        case siteExceptionOrder
         case customFilters
     }
 
@@ -132,6 +136,7 @@ struct AdBlockSettings: Codable, Equatable {
         basicFilteringHostnames = try container.decodeIfPresent([String].self, forKey: .basicFilteringHostnames) ?? []
         optimalFilteringHostnames = try container.decodeIfPresent([String].self, forKey: .optimalFilteringHostnames) ?? []
         completeFilteringHostnames = try container.decodeIfPresent([String].self, forKey: .completeFilteringHostnames) ?? []
+        siteExceptionOrder = try container.decodeIfPresent([String].self, forKey: .siteExceptionOrder) ?? []
         customFilters = try container.decodeIfPresent([CustomFilterEntry].self, forKey: .customFilters) ?? []
     }
 
@@ -146,6 +151,7 @@ struct AdBlockSettings: Codable, Equatable {
             basicFilteringHostnames: [],
             optimalFilteringHostnames: [],
             completeFilteringHostnames: [],
+            siteExceptionOrder: [],
             customFilters: []
         )
     }
@@ -155,6 +161,52 @@ struct CustomFilterEntry: Codable, Equatable, Identifiable {
     var id: String { hostname }
     var hostname: String
     var selectors: [String]
+
+    /// Optional human-readable label per selector (selector -> label), captured
+    /// when an element is hidden via the Safari point-and-click tool. `selectors`
+    /// remains the canonical data that the extension applies; labels are display-only.
+    var labels: [String: String]?
+
+    init(hostname: String, selectors: [String], labels: [String: String]? = nil) {
+        self.hostname = hostname
+        self.selectors = selectors
+        self.labels = labels
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case hostname
+        case selectors
+        case labels
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hostname = try container.decode(String.self, forKey: .hostname)
+        selectors = try container.decode([String].self, forKey: .selectors)
+        labels = try container.decodeIfPresent([String: String].self, forKey: .labels)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(hostname, forKey: .hostname)
+        try container.encode(selectors, forKey: .selectors)
+        try container.encodeIfPresent(normalizedLabels, forKey: .labels)
+    }
+
+    /// Labels limited to selectors that actually exist, dropping empties.
+    var normalizedLabels: [String: String]? {
+        guard let labels else { return nil }
+        let valid = labels.filter { key, value in
+            selectors.contains(key) && value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        }
+        return valid.isEmpty ? nil : valid
+    }
+
+    func label(for selector: String) -> String? {
+        guard let value = labels?[selector] else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
 }
 
 struct AdBlockSettingsBackup: Codable {

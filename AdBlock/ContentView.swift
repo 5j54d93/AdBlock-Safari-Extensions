@@ -29,10 +29,7 @@ struct ContentView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        HeaderView(
-                            selectedSection: selectedSection,
-                            extensionStatusDescription: viewModel.extensionStatusDescription
-                        )
+                        HeaderView(selectedSection: selectedSection)
 
                         switch selectedSection {
                         case .protection:
@@ -88,7 +85,8 @@ struct ContentView: View {
             await viewModel.refreshExtensionState()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            Task {
+            Task { @MainActor in
+                viewModel.reloadFromStoreIfNeeded()
                 await viewModel.refreshExtensionStateIfNeeded()
             }
         }
@@ -99,7 +97,8 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
-            Task {
+            Task { @MainActor in
+                viewModel.reloadFromStoreIfNeeded()
                 await viewModel.refreshExtensionStateIfNeeded()
             }
         }

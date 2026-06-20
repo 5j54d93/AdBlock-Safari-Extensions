@@ -30,7 +30,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .rulesets:
             return "防護清單"
         case .customRules:
-            return "自訂規則"
+            return "已隱藏的內容"
         case .advanced:
             return "進階"
         case .filterListSources:
@@ -45,7 +45,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .rulesets:
             return "list.bullet.rectangle"
         case .customRules:
-            return "curlybraces.square"
+            return "eye.slash"
         case .filterListSources:
             return "link"
         case .advanced:
@@ -53,14 +53,18 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         }
     }
 
-    func description(default defaultDescription: String) -> String {
+    var description: String {
         switch self {
+        case .protection:
+            return "設定整體的封鎖強度與行為，並為個別網站指定例外。"
+        case .rulesets:
+            return "選擇要啟用的內建封鎖清單，涵蓋廣告、追蹤器與各語言網站。"
         case .customRules:
-            return "為特定網站加入自己的頁面隱藏或 scriptlet 規則，儲存後會同步到 Safari 延伸功能。"
+            return "你在各網站手動隱藏的元素都列在這裡，隨時可以還原。"
         case .filterListSources:
             return "查看 AdBlock 目前內建的開源防護清單與來源。"
-        default:
-            return defaultDescription
+        case .advanced:
+            return "備份、還原或重設你的所有設定。"
         }
     }
 }

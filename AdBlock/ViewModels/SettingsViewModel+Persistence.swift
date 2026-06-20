@@ -27,6 +27,19 @@ extension SettingsViewModel {
         }
     }
 
+    /// Re-reads settings from the shared store and adopts them when they are
+    /// newer than what we hold in memory. This lets elements hidden via the
+    /// Safari point-and-click tool (which writes through the extension's native
+    /// handler) appear in the app, without clobbering them on the next save.
+    func reloadFromStoreIfNeeded() {
+        let latest = store.load(defaultRulesets: rulesets.defaultEnabledIDs)
+        guard latest.revision > settings.revision else { return }
+
+        settings = latest
+        siteExceptions = Self.exceptions(from: settings)
+        customFilterSites = Self.customFilterSites(from: settings)
+    }
+
     @discardableResult
     func persistNow(_ nextSettings: AdBlockSettings) -> Bool {
         var settingsToSave = nextSettings

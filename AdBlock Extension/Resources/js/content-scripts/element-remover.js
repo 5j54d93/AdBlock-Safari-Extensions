@@ -111,6 +111,141 @@ function onRuntimeMessage(message) {
 
 /******************************************************************************/
 
+function cssEscapeIdent(value) {
+    if ( typeof value !== 'string' || value === '' ) { return ''; }
+    if ( typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ) {
+        return CSS.escape(value);
+    }
+    return value.replace(/[^\w-]/g, ch => `\\${ch}`);
+}
+
+function looksStableName(name) {
+    if ( typeof name !== 'string' || name === '' || name.length > 50 ) { return false; }
+    if ( /\d{4,}/.test(name) ) { return false; }
+    if ( /[0-9a-f]{8,}/i.test(name) ) { return false; }
+    return true;
+}
+
+function isUniqueSelector(selector, element) {
+    if ( selector === '' ) { return false; }
+    try {
+        const found = document.querySelectorAll(selector);
+        return found.length === 1 && found[0] === element;
+    } catch {
+        return false;
+    }
+}
+
+function classSelectorFor(element) {
+    const parts = [];
+    for ( const name of element.classList ) {
+        if ( looksStableName(name) === false ) { continue; }
+        parts.push(`.${cssEscapeIdent(name)}`);
+    }
+    return parts.join('');
+}
+
+function nthOfTypeIndex(element) {
+    let index = 1;
+    let sibling = element;
+    const tag = element.tagName;
+    while ( (sibling = sibling.previousElementSibling) !== null ) {
+        if ( sibling.tagName === tag ) { index += 1; }
+    }
+    return index;
+}
+
+function simpleSelectorFor(element) {
+    const tag = element.tagName.toLowerCase();
+
+    const id = element.id;
+    if ( typeof id === 'string' && looksStableName(id) ) {
+        const selector = `#${cssEscapeIdent(id)}`;
+        if ( isUniqueSelector(selector, element) ) { return selector; }
+    }
+
+    const classes = classSelectorFor(element);
+    if ( classes !== '' ) {
+        if ( isUniqueSelector(`${tag}${classes}`, element) ) { return `${tag}${classes}`; }
+        if ( isUniqueSelector(classes, element) ) { return classes; }
+        return `${tag}${classes}:nth-of-type(${nthOfTypeIndex(element)})`;
+    }
+
+    return `${tag}:nth-of-type(${nthOfTypeIndex(element)})`;
+}
+
+function cssSelectorFromElement(element) {
+    if ( element instanceof Element === false ) { return ''; }
+
+    const direct = simpleSelectorFor(element);
+    if ( isUniqueSelector(direct, element) ) { return direct; }
+
+    const parts = [];
+    let current = element;
+    let depth = 0;
+    while (
+        current instanceof Element &&
+        current !== document.documentElement &&
+        current !== document.body &&
+        depth < 6
+    ) {
+        const part = simpleSelectorFor(current);
+        parts.unshift(part);
+        if ( isUniqueSelector(parts.join(' > '), element) ) {
+            return parts.join(' > ');
+        }
+        if ( part.startsWith('#') ) { break; }
+        current = current.parentElement;
+        depth += 1;
+    }
+
+    return parts.join(' > ');
+}
+
+function labelForElement(element) {
+    const tag = element.tagName.toLowerCase();
+
+    if ( tag === 'img' || tag === 'picture' || tag === 'svg' ) {
+        const alt = (element.getAttribute?.('alt') || '').trim();
+        return alt !== '' ? `圖片：${alt.slice(0, 40)}` : '圖片元素';
+    }
+    if ( tag === 'video' ) { return '影片元素'; }
+    if ( tag === 'iframe' ) { return '內嵌框架'; }
+
+    const text = (element.textContent || '').replace(/\s+/g, ' ').trim();
+    if ( text !== '' ) {
+        const clipped = text.length > 24 ? `${text.slice(0, 24)}…` : text;
+        return `含有文字「${clipped}」`;
+    }
+
+    return `${tag} 區塊`;
+}
+
+function saveCustomFilter(selector, label) {
+    try {
+        chrome.runtime?.sendMessage({
+            what: 'saveCustomFilter',
+            hostname: self.location.hostname,
+            selector,
+            label,
+        });
+    } catch {
+    }
+}
+
+function removeSavedCustomFilter(selector) {
+    try {
+        chrome.runtime?.sendMessage({
+            what: 'removeCustomFilter',
+            hostname: self.location.hostname,
+            selector,
+        });
+    } catch {
+    }
+}
+
+/******************************************************************************/
+
 const remover = {
     host: null,
     undoButton: null,
@@ -118,6 +253,8 @@ const remover = {
     highlightPath: null,
     highlightedElements: [],
     removedElements: [],
+    candidate: null,
+    pointedElement: null,
     hoverTimer: undefined,
     lastX: undefined,
     lastY: undefined,
@@ -127,6 +264,7 @@ const remover = {
         if ( this.started ) { return; }
 
         const host = document.createElement('adblock-element-remover');
+        host.setAttribute('tabindex', '-1');
         host.style.setProperty('all', 'initial', 'important');
         host.style.setProperty('bottom', '0', 'important');
         host.style.setProperty('display', 'block', 'important');
@@ -279,7 +417,7 @@ const remover = {
                 <path class="ocean"></path>
                 <path class="highlight"></path>
             </svg>
-            <div class="hint">按一下要隱藏的元素</div>
+            <div class="hint">點一下永久隱藏 · 滾輪或 ↑ ↓ 可選更大或更小範圍</div>
             <div class="toolbar" data-adblock-control>
                 <button type="button" id="close" title="結束移除元素">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -320,11 +458,16 @@ const remover = {
         host.addEventListener('mousemove', this.onMouseMove, { passive: true });
         chrome.runtime?.onMessage?.addListener(onRuntimeMessage);
         self.addEventListener('keydown', this.onKeyPressed, true);
+        self.addEventListener('wheel', this.onWheel, { passive: false });
         self.addEventListener('scroll', this.onViewportChanged, { passive: true });
         self.addEventListener('resize', this.onViewportChanged, { passive: true });
         self.addEventListener('pagehide', this.onPageHidden, { once: true });
 
         document.documentElement.append(host);
+        try {
+            host.focus({ preventScroll: true });
+        } catch {
+        }
         this.started = true;
         this.highlightUpdate();
     },
@@ -341,6 +484,7 @@ const remover = {
         this.host?.removeEventListener('mousemove', this.onMouseMove, { passive: true });
         chrome.runtime?.onMessage?.removeListener(onRuntimeMessage);
         self.removeEventListener('keydown', this.onKeyPressed, true);
+        self.removeEventListener('wheel', this.onWheel, { passive: false });
         self.removeEventListener('scroll', this.onViewportChanged, { passive: true });
         self.removeEventListener('resize', this.onViewportChanged, { passive: true });
         self.removeEventListener('pagehide', this.onPageHidden, { once: true });
@@ -352,6 +496,8 @@ const remover = {
         this.highlightPath = null;
         this.highlightedElements = [];
         this.removedElements = [];
+        this.candidate = null;
+        this.pointedElement = null;
 
         if ( self.adblockElementRemover === this ) {
             self.adblockElementRemover = undefined;
@@ -391,10 +537,36 @@ const remover = {
             return;
         }
 
+        if ( event.key === 'ArrowUp' ) {
+            event.stopPropagation();
+            event.preventDefault();
+            remover.expandSelection();
+            return;
+        }
+
+        if ( event.key === 'ArrowDown' ) {
+            event.stopPropagation();
+            event.preventDefault();
+            remover.narrowSelection();
+            return;
+        }
+
         if ( event.key !== 'Delete' && event.key !== 'Backspace' ) { return; }
         event.stopPropagation();
         event.preventDefault();
         remover.removeElementAtPoint();
+    },
+
+    onWheel(event) {
+        if ( hasControlInPath(event) ) { return; }
+        if ( remover.candidate instanceof Element === false ) { return; }
+        event.preventDefault();
+        event.stopPropagation();
+        if ( event.deltaY < 0 ) {
+            remover.expandSelection();
+        } else if ( event.deltaY > 0 ) {
+            remover.narrowSelection();
+        }
     },
 
     onViewportChanged() {
@@ -427,7 +599,39 @@ const remover = {
     },
 
     highlightElementAtPoint(x, y) {
-        this.highlightElements([ this.elementFromPoint(x, y) ]);
+        const element = this.elementFromPoint(x, y);
+        this.pointedElement = element;
+        this.candidate = element;
+        this.highlightElements([ element ]);
+    },
+
+    expandSelection() {
+        const current = this.candidate;
+        if ( current instanceof Element === false ) { return; }
+
+        const parent = current.parentElement;
+        if ( parent instanceof Element === false ) { return; }
+        if ( parent === this.host ) { return; }
+        if ( parent === document.documentElement || parent === document.body ) { return; }
+
+        this.candidate = parent;
+        this.highlightElements([ parent ]);
+    },
+
+    narrowSelection() {
+        const current = this.candidate;
+        const target = this.pointedElement;
+        if ( current instanceof Element === false ) { return; }
+        if ( target instanceof Element === false || current === target ) { return; }
+
+        let child = target;
+        while ( child instanceof Element && child.parentElement !== current ) {
+            child = child.parentElement;
+        }
+        if ( child instanceof Element === false ) { return; }
+
+        this.candidate = child;
+        this.highlightElements([ child ]);
     },
 
     highlightElements(iterable = []) {
@@ -510,14 +714,22 @@ const remover = {
         const parent = element.parentNode;
         if ( parent === null ) { return; }
 
+        const selector = cssSelectorFromElement(element);
+        const label = selector !== '' ? labelForElement(element) : '';
+
         unlockPageScrollFrom(element);
         this.removedElements.push({
             element,
             parent,
             nextSibling: element.nextSibling,
+            selector,
         });
         element.remove();
         this.updateToolbarState();
+
+        if ( selector !== '' ) {
+            saveCustomFilter(selector, label);
+        }
 
         if ( typeof mx === 'number' && typeof my === 'number' ) {
             this.highlightElementAtPoint(mx, my);
@@ -531,12 +743,16 @@ const remover = {
         this.updateToolbarState();
         if ( entry === undefined ) { return; }
 
-        const { element, parent, nextSibling } = entry;
+        const { element, parent, nextSibling, selector } = entry;
         if ( element.isConnected ) { return; }
         if ( parent.isConnected === false ) { return; }
 
         parent.insertBefore(element, nextSibling?.parentNode === parent ? nextSibling : null);
         this.highlightElements([ element ]);
+
+        if ( typeof selector === 'string' && selector !== '' ) {
+            removeSavedCustomFilter(selector);
+        }
     },
 };
 

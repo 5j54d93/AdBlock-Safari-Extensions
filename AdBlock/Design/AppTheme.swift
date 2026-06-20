@@ -14,8 +14,20 @@ enum AppTheme {
     static let text200 = Color(nsColor: .adBlockDynamic(light: "#373734", dark: "#c3c2b7"))
     static let text400 = Color(nsColor: .adBlockDynamic(light: "#7b7974", dark: "#97958c"))
     static let border = Color(nsColor: .adBlockDynamic(light: "#1f1f1e", dark: "#e2e1da"))
+
+    // Interactive accent: links, selection, native controls. Follows the user's
+    // macOS accent (Claude design system reserves blue for interactive roles).
     static let accent = Color.accentColor
     static let accentSoft = Color.accentColor.opacity(0.14)
+
+    // Brand: Claude clay. Used for recommendation/highlight moments, not controls.
+    static let brand = Color(nsColor: .adBlockDynamic(light: "#c6613f", dark: "#d97757"))
+    static let brandSoft = Color(nsColor: .adBlockDynamic(light: "#d97757", dark: "#d97757")).opacity(0.15)
+
+    // Status colors (Claude design system semantic layer).
+    static let danger = Color(nsColor: .adBlockDynamic(light: "#cf3a3a", dark: "#e34a4a"))
+    static let warning = Color(nsColor: .adBlockDynamic(light: "#a86b00", dark: "#b87700"))
+    static let success = Color(nsColor: .adBlockDynamic(light: "#578a00", dark: "#639900"))
 }
 
 extension NSColor {

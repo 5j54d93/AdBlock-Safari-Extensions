@@ -7,31 +7,41 @@ import AppKit
 import Foundation
 
 extension SettingsViewModel {
-    var customFilterRuleCount: Int {
-        settings.customFilters.reduce(0) { $0 + $1.selectors.count }
+    /// Removes a single hidden element (selector) from a site, preserving the
+    /// remaining selectors and their labels. Operates on `settings.customFilters`
+    /// directly so captured labels survive.
+    func removeCustomFilter(hostname: String, selector: String) {
+        guard let index = settings.customFilters.firstIndex(where: { $0.hostname == hostname }) else {
+            return
+        }
+
+        var entry = settings.customFilters[index]
+        entry.selectors.removeAll { $0 == selector }
+        entry.labels?.removeValue(forKey: selector)
+
+        var next = settings
+        if entry.selectors.isEmpty {
+            next.customFilters.remove(at: index)
+        } else {
+            next.customFilters[index] = entry
+        }
+
+        guard persistNow(next) else { return }
+        customFilterSites = Self.customFilterSites(from: settings)
+        settingsTransferError = nil
+        settingsTransferMessage = nil
     }
 
-    func addCustomFilterSite() {
-        customFilterSites.append(CustomFilterSite(hostname: "", rulesText: ""))
-    }
+    func clearAllCustomFilters() {
+        guard settings.customFilters.isEmpty == false else { return }
 
-    func updateCustomFilterSiteHostname(_ id: UUID, _ hostname: String) {
-        guard let index = customFilterSites.firstIndex(where: { $0.id == id }) else { return }
-        guard customFilterSites[index].hostname != hostname else { return }
-        customFilterSites[index].hostname = hostname
-        persistCustomFilters()
-    }
+        var next = settings
+        next.customFilters = []
+        guard persistNow(next) else { return }
 
-    func updateCustomFilterSiteRulesText(_ id: UUID, _ rulesText: String) {
-        guard let index = customFilterSites.firstIndex(where: { $0.id == id }) else { return }
-        guard customFilterSites[index].rulesText != rulesText else { return }
-        customFilterSites[index].rulesText = rulesText
-        persistCustomFilters()
-    }
-
-    func removeCustomFilterSite(_ id: UUID) {
-        customFilterSites.removeAll { $0.id == id }
-        persistCustomFilters()
+        customFilterSites = Self.customFilterSites(from: settings)
+        settingsTransferError = nil
+        settingsTransferMessage = "已清除所有隱藏的內容。"
     }
 
     func importCustomFilterText(_ text: String) -> Int {
@@ -98,24 +108,47 @@ extension SettingsViewModel {
         }
     }
 
+    /// Normalizes hostnames, dedupes selectors, and merges entries with the same
+    /// hostname while preserving each surviving selector's captured label.
     static func sanitizedCustomFilters(_ entries: [CustomFilterEntry]) -> [CustomFilterEntry] {
-        customFilterEntries(
-            from: entries.map { entry in
-                CustomFilterSite(
-                    hostname: entry.hostname,
-                    rulesText: entry.selectors.joined(separator: "\n")
-                )
+        var output: [CustomFilterEntry] = []
+        var indexByHostname: [String: Int] = [:]
+
+        for entry in entries {
+            guard let hostname = normalizedHostname(entry.hostname) else { continue }
+            let selectors = uniqueNonEmptyStrings(entry.selectors)
+            guard selectors.isEmpty == false else { continue }
+
+            let labels = entry.labels?.filter { selectors.contains($0.key) }
+
+            if let index = indexByHostname[hostname] {
+                let mergedSelectors = uniqueNonEmptyStrings(output[index].selectors + selectors)
+                var mergedLabels = output[index].labels ?? [:]
+                if let labels {
+                    mergedLabels.merge(labels) { current, _ in current }
+                }
+                output[index].selectors = mergedSelectors
+                output[index].labels = nonEmptyLabels(mergedLabels, for: mergedSelectors)
+            } else {
+                indexByHostname[hostname] = output.count
+                output.append(CustomFilterEntry(
+                    hostname: hostname,
+                    selectors: selectors,
+                    labels: nonEmptyLabels(labels, for: selectors)
+                ))
             }
-        )
+        }
+
+        return output
     }
 
-    private func persistCustomFilters() {
-        let entries = Self.customFilterEntries(from: customFilterSites)
-        var next = settings
-        next.customFilters = entries
-
-        guard next != settings else { return }
-        persist(next)
+    private static func nonEmptyLabels(
+        _ labels: [String: String]?,
+        for selectors: [String]
+    ) -> [String: String]? {
+        guard let labels else { return nil }
+        let valid = labels.filter { selectors.contains($0.key) }
+        return valid.isEmpty ? nil : valid
     }
 
     private static func customFilterEntries(from sites: [CustomFilterSite]) -> [CustomFilterEntry] {

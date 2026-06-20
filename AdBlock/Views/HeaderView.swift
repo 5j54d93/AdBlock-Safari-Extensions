@@ -7,7 +7,6 @@ import SwiftUI
 
 struct HeaderView: View {
     let selectedSection: SettingsSection
-    let extensionStatusDescription: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -15,9 +14,10 @@ struct HeaderView: View {
                 .font(AppFont.pageTitle)
                 .foregroundStyle(AppTheme.text000)
 
-            Text(selectedSection.description(default: extensionStatusDescription))
+            Text(selectedSection.description)
                 .font(AppFont.pageDescription)
                 .foregroundStyle(AppTheme.text400)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
