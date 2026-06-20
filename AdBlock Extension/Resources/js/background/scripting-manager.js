@@ -468,6 +468,24 @@ function addFacebookStoryMute(context) {
 
 /******************************************************************************/
 
+function addPageActivityBridge(context, id, matches, excludeMatches) {
+    const directive = {
+        id: `${id}-activity-bridge`,
+        js: [
+            '/js/content-scripts/page-activity-bridge.js',
+        ],
+        matches,
+        runAt: 'document_start',
+    };
+    if ( excludeMatches.length !== 0 ) {
+        directive.excludeMatches = excludeMatches;
+    }
+
+    addContentScript(context, directive);
+}
+
+/******************************************************************************/
+
 function addFacebookAdPruner(context) {
     const { filteringModeDetails } = context;
     const matches = facebookFilteringMatches(filteringModeDetails);
@@ -495,6 +513,7 @@ function addFacebookAdPruner(context) {
         directive.excludeMatches = excludeMatches;
     }
 
+    addPageActivityBridge(context, directive.id, matches, excludeMatches);
     addContentScript(context, directive);
 }
 
@@ -549,6 +568,7 @@ function addYouTubeAdPruner(context) {
         directive.excludeMatches = excludeMatches;
     }
 
+    addPageActivityBridge(context, directive.id, matches, excludeMatches);
     addContentScript(context, directive);
 }
 
@@ -603,6 +623,7 @@ function addInstagramAdPruner(context) {
         directive.excludeMatches = excludeMatches;
     }
 
+    addPageActivityBridge(context, directive.id, matches, excludeMatches);
     addContentScript(context, directive);
 }
 

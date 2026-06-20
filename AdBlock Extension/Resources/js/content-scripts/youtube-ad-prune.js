@@ -77,6 +77,46 @@ const INITIAL_DATA_NAMES = [
     'ytInitialReelWatchSequenceResponse',
 ];
 
+let pendingReportCount = 0;
+let reportTimer;
+
+/******************************************************************************/
+
+function reportActivity(count, label = 'YouTube 廣告項目') {
+    if ( count <= 0 ) { return; }
+    pendingReportCount += count;
+    if ( reportTimer !== undefined ) { return; }
+
+    reportTimer = setTimeout(() => {
+        const total = pendingReportCount;
+        pendingReportCount = 0;
+        reportTimer = undefined;
+        const message = {
+            source: 'youtube-ad-prune',
+            label,
+            hostname: location.hostname,
+            count: total,
+        };
+        try {
+            if ( chrome.runtime?.sendMessage instanceof Function ) {
+                chrome.runtime.sendMessage({
+                    what: 'recordContentScriptActivity',
+                    ...message,
+                });
+                return;
+            }
+        } catch {
+        }
+        try {
+            self.postMessage({
+                __adblockContentScriptActivity: true,
+                ...message,
+            }, '*');
+        } catch {
+        }
+    }, 80);
+}
+
 /******************************************************************************/
 
 function isObject(value) {
@@ -143,6 +183,7 @@ function isEmptyAdShell(item) {
 function pruneJson(root) {
     const seen = new WeakSet();
     let changed = false;
+    let removedCount = 0;
 
     const visit = node => {
         if ( isObject(node) === false || seen.has(node) ) { return; }
@@ -154,6 +195,7 @@ function pruneJson(root) {
                 if ( isAdListItem(item) ) {
                     node.splice(index, 1);
                     changed = true;
+                    removedCount += 1;
                     continue;
                 }
 
@@ -162,6 +204,7 @@ function pruneJson(root) {
                 if ( isEmptyAdShell(item) ) {
                     node.splice(index, 1);
                     changed = true;
+                    removedCount += 1;
                 }
             }
             return;
@@ -178,6 +221,7 @@ function pruneJson(root) {
     };
 
     visit(root);
+    reportActivity(removedCount);
     return changed;
 }
 

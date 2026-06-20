@@ -52,12 +52,39 @@ const startedAt = Date.now();
 let observer;
 let scheduled = false;
 let cleanupTimer;
+let pendingReportCount = 0;
+let reportTimer;
+
+/******************************************************************************/
+
+function reportActivity(count, label = '頁面廣告元素') {
+    if ( count <= 0 ) { return; }
+    pendingReportCount += count;
+    if ( reportTimer !== undefined ) { return; }
+
+    reportTimer = self.setTimeout(() => {
+        const total = pendingReportCount;
+        pendingReportCount = 0;
+        reportTimer = undefined;
+        try {
+            chrome.runtime?.sendMessage({
+                what: 'recordContentScriptActivity',
+                source: 'early-ad-cleanup',
+                label,
+                hostname: self.location.hostname,
+                count: total,
+            });
+        } catch {
+        }
+    }, 80);
+}
 
 /******************************************************************************/
 
 function hideElement(node) {
     if ( node instanceof Element === false ) { return false; }
     if ( node.localName === 'html' || node.localName === 'body' ) { return false; }
+    if ( node.dataset.adblockEarlyHidden === 'true' ) { return false; }
     node.dataset.adblockEarlyHidden = 'true';
 
     const { style } = node;
@@ -172,9 +199,10 @@ function closestOverlayRoot(node) {
 }
 
 function hideOverlayCluster(node) {
+    let hiddenCount = 0;
     const root = closestOverlayRoot(node);
     if ( root instanceof Element ) {
-        hideElement(root);
+        hiddenCount += hideElement(root) ? 1 : 0;
     }
 
     for ( const candidate of document.querySelectorAll([
@@ -188,13 +216,14 @@ function hideOverlayCluster(node) {
     ].join(',')) ) {
         if ( candidate === root ) { continue; }
         if ( isViewportBlocker(candidate) ) {
-            hideElement(candidate);
+            hiddenCount += hideElement(candidate) ? 1 : 0;
         }
     }
+    return hiddenCount;
 }
 
 function hideOfferwallTextCandidates() {
-    if ( document.body instanceof HTMLElement === false ) { return false; }
+    if ( document.body instanceof HTMLElement === false ) { return 0; }
 
     const candidates = document.querySelectorAll([
         'body > div',
@@ -204,31 +233,31 @@ function hideOfferwallTextCandidates() {
         'div[style*="z-index"]',
     ].join(','));
 
-    let matched = false;
+    let hiddenCount = 0;
     for ( const node of candidates ) {
         if ( isOverlayCandidate(node) === false ) { continue; }
         if ( OFFERWALL_TEXT_PATTERN.test(node.textContent || '') === false ) { continue; }
-        hideOverlayCluster(node);
-        matched = true;
+        hiddenCount += hideOverlayCluster(node);
     }
-    return matched;
+    return hiddenCount;
 }
 
 function cleanup() {
-    hideSelectorMatches(AD_SELECTORS);
+    let hiddenCount = hideSelectorMatches(AD_SELECTORS).length;
 
     const offerwallNodes = hideSelectorMatches(OFFERWALL_SELECTORS);
     for ( const node of offerwallNodes ) {
-        hideOverlayCluster(node);
+        hiddenCount += hideOverlayCluster(node);
     }
+    hiddenCount += offerwallNodes.length;
 
-    const foundOfferwall =
-        offerwallNodes.length !== 0 ||
-        hideOfferwallTextCandidates();
+    const textOfferwallCount = hideOfferwallTextCandidates();
+    hiddenCount += textOfferwallCount;
 
-    if ( foundOfferwall ) {
+    if ( offerwallNodes.length !== 0 || textOfferwallCount !== 0 ) {
         unlockPageInteraction();
     }
+    reportActivity(hiddenCount);
 
     if ( Date.now() - startedAt > OBSERVE_MS ) {
         if ( cleanupTimer !== undefined ) {

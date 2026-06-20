@@ -8,6 +8,7 @@
 
 import {
     browser,
+    runtime,
 } from './ext.js';
 
 /******************************************************************************/
@@ -33,6 +34,13 @@ const RULESET_NAMES = new Map([
     [ 'ublock-experimental', '實驗性防護' ],
 ]);
 
+const CONTENT_SCRIPT_SOURCE_NAMES = new Map([
+    [ 'early-ad-cleanup', '頁面廣告清理' ],
+    [ 'facebook-ad-prune', 'Facebook 贊助內容' ],
+    [ 'instagram-ad-prune', 'Instagram 贊助內容' ],
+    [ 'youtube-ad-prune', 'YouTube 廣告項目' ],
+]);
+
 /******************************************************************************/
 
 function isObject(value) {
@@ -56,6 +64,24 @@ function normalizeMatch(info) {
         ruleId: Number.isFinite(ruleId) ? ruleId : undefined,
         rulesetId: rulesetId || UNKNOWN_RULESET_ID,
         tabId: Number.isFinite(tabId) ? tabId : undefined,
+        timeStamp: Number.isFinite(timeStamp) ? timeStamp : Date.now(),
+    };
+}
+
+function normalizeActivity(info) {
+    if ( isObject(info) === false ) { return; }
+
+    const count = Number(info.count);
+    const timeStamp = Number(info.timeStamp ?? Date.now());
+    const source = String(info.source || '').trim();
+    const label = String(info.label || '').trim();
+    const hostname = String(info.hostname || '').trim();
+
+    return {
+        count: Number.isFinite(count) && count > 0 ? count : 0,
+        hostname,
+        label,
+        source: source || 'content-script',
         timeStamp: Number.isFinite(timeStamp) ? timeStamp : Date.now(),
     };
 }
@@ -200,6 +226,17 @@ async function callGetMatchedRules(filter) {
     });
 }
 
+async function callGetContentScriptActivity(filter) {
+    const result = runtime.sendMessage({
+        what: 'getContentScriptActivity',
+        ...filter,
+    });
+    if ( typeof result?.then === 'function' ) {
+        return result;
+    }
+    return result;
+}
+
 async function getActionCountSnapshot(tabId) {
     const existingCount = parseBadgeCount(await getBadgeText(tabId));
     if ( existingCount !== undefined && existingCount > 0 ) {
@@ -278,6 +315,37 @@ export async function getRecentBlockingMatches({
     }
 }
 
+export async function getRecentContentScriptActivity({
+    tabId,
+    minTimeStamp = Date.now() - RECENT_MATCH_WINDOW_MS,
+} = {}) {
+    const filter = { minTimeStamp };
+    if ( Number.isInteger(tabId) ) {
+        filter.tabId = tabId;
+    }
+
+    try {
+        const result = await callGetContentScriptActivity(filter);
+        const activities = Array.isArray(result?.activities)
+            ? result.activities
+            : [];
+        return {
+            available: result?.ok === true,
+            capturedAt: Date.now(),
+            activities: activities.map(normalizeActivity).filter(activity => activity?.count > 0),
+            minTimeStamp,
+        };
+    } catch(reason) {
+        return {
+            available: false,
+            capturedAt: Date.now(),
+            error: normalizeError(reason),
+            activities: [],
+            minTimeStamp,
+        };
+    }
+}
+
 export function summarizeBlockingMatches(matches = []) {
     const rulesets = new Map();
     let latestTimeStamp = 0;
@@ -306,6 +374,37 @@ export function summarizeBlockingMatches(matches = []) {
     };
 }
 
+export function summarizeContentScriptActivity(activities = []) {
+    const sources = new Map();
+    let activityCount = 0;
+    let latestTimeStamp = 0;
+
+    for ( const activity of activities ) {
+        const count = Math.max(0, Number(activity.count) || 0);
+        activityCount += count;
+        latestTimeStamp = Math.max(latestTimeStamp, activity.timeStamp || 0);
+        sources.set(
+            activity.source,
+            (sources.get(activity.source) || 0) + count
+        );
+    }
+
+    const topSources = Array.from(sources, ([ id, count ]) => ({
+        count,
+        id,
+        name: contentScriptSourceName(id),
+    })).sort((a, b) =>
+        b.count - a.count || a.name.localeCompare(b.name)
+    );
+
+    return {
+        activityCount,
+        latestTimeStamp,
+        sourceCount: sources.size,
+        topSources,
+    };
+}
+
 export function rulesetDisplayName(id = '') {
     if ( RULESET_NAMES.has(id) ) {
         return RULESET_NAMES.get(id);
@@ -322,10 +421,28 @@ export function rulesetDisplayName(id = '') {
     return id.replaceAll('-', ' ');
 }
 
+export function contentScriptSourceName(id = '') {
+    if ( CONTENT_SCRIPT_SOURCE_NAMES.has(id) ) {
+        return CONTENT_SCRIPT_SOURCE_NAMES.get(id);
+    }
+    return id.replaceAll('-', ' ');
+}
+
 export function formatTopRulesets(summary, limit = 2) {
     const names = summary.topRulesets
         .slice(0, limit)
         .map(ruleset => ruleset.name);
+
+    if ( names.length === 0 ) {
+        return '';
+    }
+    return names.join('、');
+}
+
+export function formatTopContentSources(summary, limit = 2) {
+    const names = summary.topSources
+        .slice(0, limit)
+        .map(source => source.name);
 
     if ( names.length === 0 ) {
         return '';

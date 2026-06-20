@@ -74,6 +74,45 @@ let domObserver;
 let domCleanupTimer;
 let domCleanupQueued = false;
 const domStartedAt = Date.now();
+let pendingReportCount = 0;
+let reportTimer;
+
+/******************************************************************************/
+
+function reportActivity(count, label = 'Facebook 贊助內容') {
+    if ( count <= 0 ) { return; }
+    pendingReportCount += count;
+    if ( reportTimer !== undefined ) { return; }
+
+    reportTimer = setTimeout(() => {
+        const total = pendingReportCount;
+        pendingReportCount = 0;
+        reportTimer = undefined;
+        const message = {
+            source: 'facebook-ad-prune',
+            label,
+            hostname: location.hostname,
+            count: total,
+        };
+        try {
+            if ( chrome.runtime?.sendMessage instanceof Function ) {
+                chrome.runtime.sendMessage({
+                    what: 'recordContentScriptActivity',
+                    ...message,
+                });
+                return;
+            }
+        } catch {
+        }
+        try {
+            self.postMessage({
+                __adblockContentScriptActivity: true,
+                ...message,
+            }, '*');
+        } catch {
+        }
+    }, 80);
+}
 
 /******************************************************************************/
 
@@ -247,6 +286,7 @@ function removeElement(node) {
     if ( isElement(node) === false ) { return false; }
     if ( node.localName === 'html' || node.localName === 'body' ) { return false; }
     node.remove();
+    reportActivity(1, 'Facebook 贊助卡片');
     return true;
 }
 
@@ -350,6 +390,7 @@ function pruneSideFeed(sideFeed) {
     if ( isObject(sideFeed) === false ) { return false; }
 
     let changed = false;
+    let removedCount = 0;
     for ( const key of [ 'nodes', 'edges' ] ) {
         const items = sideFeed[key];
         if ( Array.isArray(items) === false ) { continue; }
@@ -360,10 +401,12 @@ function pruneSideFeed(sideFeed) {
             if ( isSponsoredSideFeedItem(target) ) {
                 items.splice(index, 1);
                 changed = true;
+                removedCount += 1;
             }
         }
     }
 
+    reportActivity(removedCount);
     return changed;
 }
 

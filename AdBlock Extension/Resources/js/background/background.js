@@ -439,6 +439,9 @@ async function syncMacAppSettingsFromNative() {
 /******************************************************************************/
 
 let customFilterOpQueue = Promise.resolve();
+const MAX_CONTENT_SCRIPT_ACTIVITY_PER_TAB = 500;
+const CONTENT_SCRIPT_ACTIVITY_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+const contentScriptActivityByTab = new Map();
 
 function queueCustomFilterOp(operation) {
     const next = customFilterOpQueue.then(operation, operation);
@@ -469,6 +472,94 @@ async function persistCustomFilterChange(command, request) {
 
     await syncMacAppSettingsFromNative();
     return { ok: true };
+}
+
+/******************************************************************************/
+
+function hostnameFromURL(url = '') {
+    try {
+        return new URL(url).hostname;
+    } catch {
+        return '';
+    }
+}
+
+function normalizeContentScriptText(value, fallback = '') {
+    return typeof value === 'string'
+        ? value.trim().slice(0, 120)
+        : fallback;
+}
+
+function pruneContentScriptActivity(tabId, minTimeStamp = Date.now() - CONTENT_SCRIPT_ACTIVITY_MAX_AGE_MS) {
+    const events = contentScriptActivityByTab.get(tabId);
+    if ( Array.isArray(events) === false ) { return []; }
+
+    const pruned = events
+        .filter(event => event.timeStamp >= minTimeStamp)
+        .slice(-MAX_CONTENT_SCRIPT_ACTIVITY_PER_TAB);
+
+    if ( pruned.length === 0 ) {
+        contentScriptActivityByTab.delete(tabId);
+        return [];
+    }
+
+    if ( pruned.length !== events.length ) {
+        contentScriptActivityByTab.set(tabId, pruned);
+    }
+
+    return pruned;
+}
+
+function recordContentScriptActivity(request, sender) {
+    const tabId = sender?.tab?.id;
+    if ( Number.isInteger(tabId) === false ) {
+        return { ok: false, reason: 'missing-tab-id' };
+    }
+
+    const count = Math.max(0, Math.min(1000, Number.parseInt(request.count || 0, 10)));
+    if ( count === 0 ) {
+        return { ok: false, reason: 'empty-count' };
+    }
+
+    const event = {
+        count,
+        frameId: Number.isInteger(sender?.frameId) ? sender.frameId : undefined,
+        hostname: normalizeContentScriptText(
+            request.hostname,
+            hostnameFromURL(sender?.url || sender?.tab?.url || '')
+        ).toLowerCase(),
+        label: normalizeContentScriptText(request.label, '頁面內容'),
+        source: normalizeContentScriptText(request.source, 'content-script'),
+        timeStamp: Date.now(),
+    };
+
+    const events = pruneContentScriptActivity(tabId);
+    events.push(event);
+    contentScriptActivityByTab.set(
+        tabId,
+        events.slice(-MAX_CONTENT_SCRIPT_ACTIVITY_PER_TAB)
+    );
+
+    return { ok: true };
+}
+
+function getContentScriptActivity(request) {
+    const minTimeStamp = Number.isFinite(Number(request.minTimeStamp))
+        ? Number(request.minTimeStamp)
+        : Date.now() - (30 * 60 * 1000);
+    const tabId = Number.parseInt(request.tabId, 10);
+
+    const activities = Number.isInteger(tabId)
+        ? pruneContentScriptActivity(tabId, minTimeStamp)
+        : Array.from(contentScriptActivityByTab)
+            .flatMap(([ id ]) => pruneContentScriptActivity(id, minTimeStamp));
+
+    return {
+        activities: activities.filter(event => event.timeStamp >= minTimeStamp),
+        capturedAt: Date.now(),
+        minTimeStamp,
+        ok: true,
+    };
 }
 
 /******************************************************************************/
@@ -589,6 +680,12 @@ async function onMessage(request, sender) {
     // Does not require a trusted origin.
 
     switch ( request.what ) {
+
+    case 'recordContentScriptActivity':
+        return recordContentScriptActivity(request, sender);
+
+    case 'getContentScriptActivity':
+        return getContentScriptActivity(request);
 
     case 'insertCSS':
         if ( frameId === false ) { return false; }
