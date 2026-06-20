@@ -31,12 +31,16 @@
 <main>
     <section class="summary-grid" aria-label="封鎖摘要">
         <div class="summary-item">
-            <span>近期處理請求</span>
+            <span>近期處理項目</span>
             <strong id="summaryMatches">—</strong>
         </div>
         <div class="summary-item">
-            <span>涉及來源</span>
-            <strong id="summaryRulesets">—</strong>
+            <span>DNR 封鎖</span>
+            <strong id="summaryDnrMatches">—</strong>
+        </div>
+        <div class="summary-item">
+            <span>頁面處理</span>
+            <strong id="summaryPageActivity">—</strong>
         </div>
         <div class="summary-item">
             <span>最近時間</span>
@@ -47,7 +51,7 @@
     <section class="report-section" aria-labelledby="recentMatchesTitle">
         <div class="section-heading">
             <div>
-                <h2 id="recentMatchesTitle">近期明細</h2>
+                <h2 id="recentMatchesTitle">DNR 封鎖明細</h2>
                 <p id="reportWindow">最近 30 分鐘</p>
             </div>
             <p id="reportUpdated">—</p>
@@ -68,6 +72,34 @@
                     </tr>
                 </thead>
                 <tbody id="reportRows"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="report-section" aria-labelledby="pageActivityTitle">
+        <div class="section-heading">
+            <div>
+                <h2 id="pageActivityTitle">頁面處理紀錄</h2>
+                <p id="activityWindow">最近 30 分鐘</p>
+            </div>
+            <p id="activityUpdated">—</p>
+        </div>
+
+        <div id="activityEmptyState" class="empty-state" hidden>
+            <strong>最近沒有頁面處理紀錄</strong>
+            <span>這裡會顯示由 content script 直接清理的廣告版位或贊助內容。</span>
+        </div>
+
+        <div id="activityTableWrap" class="table-wrap" hidden>
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">時間</th>
+                        <th scope="col">類型</th>
+                        <th scope="col">處理數</th>
+                    </tr>
+                </thead>
+                <tbody id="activityRows"></tbody>
             </table>
         </div>
     </section>

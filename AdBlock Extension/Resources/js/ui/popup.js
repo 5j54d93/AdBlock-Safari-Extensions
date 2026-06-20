@@ -16,9 +16,13 @@ import { dom, qs$ } from '../shared/dom.js';
 import { toUnicode } from '../shared/idn.js';
 
 import {
+    RECENT_MATCH_WINDOW_MS,
     RECENT_MATCH_WINDOW_LABEL,
+    formatTopContentSources,
     formatTopRulesets,
+    getRecentContentScriptActivity,
     getRecentBlockingMatches,
+    summarizeContentScriptActivity,
     summarizeBlockingMatches,
 } from '../shared/blocking-stats.js';
 
@@ -196,14 +200,26 @@ async function renderBlockingOverview() {
     setOverviewLoading(true);
 
     try {
-        const result = await getRecentBlockingMatches({
-            tabId: currentTab?.id,
-        });
+        const minTimeStamp = Date.now() - RECENT_MATCH_WINDOW_MS;
+        const [ result, contentResult ] = await Promise.all([
+            getRecentBlockingMatches({
+                tabId: currentTab?.id,
+                minTimeStamp,
+            }),
+            getRecentContentScriptActivity({
+                tabId: currentTab?.id,
+                minTimeStamp,
+            }),
+        ]);
+
         if ( renderId !== overviewRenderId || protectionEnabled === false ) {
             return;
         }
 
-        if ( result.available === false ) {
+        const contentSummary = summarizeContentScriptActivity(contentResult.activities);
+        const pageActivityCount = contentSummary.activityCount;
+
+        if ( result.available === false && contentResult.available === false ) {
             setOverview(
                 '—',
                 '防護中',
@@ -213,33 +229,46 @@ async function renderBlockingOverview() {
         }
 
         const summary = summarizeBlockingMatches(result.matches);
-        if ( result.summaryOnly === true ) {
+        const dnrCount = result.summaryOnly === true
+            ? result.totalCount || 0
+            : summary.matchCount;
+        const totalCount = dnrCount + pageActivityCount;
+
+        if ( totalCount === 0 ) {
             setOverview(
-                String(result.totalCount || 0),
-                '近期處理請求',
-                result.totalCount > 0
-                    ? 'Safari 目前只提供數量，完整明細可能稍後才會出現。'
-                    : `${RECENT_MATCH_WINDOW_LABEL}沒有需要處理的請求。`
+                '0',
+                '近期處理項目',
+                `${RECENT_MATCH_WINDOW_LABEL}沒有需要處理的項目。`
             );
             return;
         }
 
-        if ( summary.matchCount === 0 ) {
-            setOverview(
-                '0',
-                '近期處理請求',
-                `${RECENT_MATCH_WINDOW_LABEL}沒有需要處理的請求。`
-            );
-            return;
+        const unavailableParts = [];
+        if ( result.available === false ) {
+            unavailableParts.push('DNR 明細');
+        }
+        if ( contentResult.available === false ) {
+            unavailableParts.push('頁面處理');
         }
 
         const topRulesets = formatTopRulesets(summary);
+        const topContentSources = formatTopContentSources(contentSummary);
+        const topSources = [ topRulesets, topContentSources ].filter(Boolean).join('、');
+        const compactDetailParts = [];
+
+        if ( topSources !== '' ) {
+            compactDetailParts.push(`來源：${topSources}`);
+        }
+        if ( unavailableParts.length > 0 ) {
+            compactDetailParts.push(`${unavailableParts.join('、')}暫不可讀`);
+        }
+
         setOverview(
-            String(summary.matchCount),
-            '近期處理請求',
-            topRulesets === ''
-                ? `涉及 ${summary.rulesetCount} 個來源。`
-                : `主要來自 ${topRulesets}。`
+            String(totalCount),
+            '近期處理項目',
+            compactDetailParts.length > 0
+                ? `${compactDetailParts.join('。')}。`
+                : '已合併 DNR 與頁面處理。'
         );
     } finally {
         if ( renderId === overviewRenderId ) {
