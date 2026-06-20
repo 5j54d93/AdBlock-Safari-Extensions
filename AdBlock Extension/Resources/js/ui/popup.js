@@ -25,6 +25,13 @@ import {
 /******************************************************************************/
 
 const RETRY_DELAY_MS = 200;
+const START_PAGE_ABOUT_PATHS = new Set([
+    '',
+    'blank',
+    'home',
+    'newtab',
+    'startpage',
+]);
 const ELEMENT_REMOVER_FILES = [
     'js/content-scripts/element-remover.js',
 ];
@@ -50,6 +57,37 @@ function isHttpURL(url) {
 
 function isFileURL(url) {
     return url?.protocol === 'file:';
+}
+
+function isStartPageTab(tab, url) {
+    const title = String(tab?.title || '').trim();
+    if ( /^Start Page$/i.test(title) || title === '起始頁面' ) {
+        return true;
+    }
+    if ( url instanceof URL === false ) {
+        return true;
+    }
+    if ( url.protocol === 'favorites:' ) {
+        return true;
+    }
+    if ( url.protocol !== 'about:' ) {
+        return false;
+    }
+
+    return START_PAGE_ABOUT_PATHS.has(url.pathname);
+}
+
+function tabURL(tab) {
+    const href = typeof tab?.url === 'string'
+        ? tab.url.trim()
+        : '';
+    if ( href === '' ) { return; }
+
+    try {
+        return new URL(href);
+    } catch {
+        return;
+    }
 }
 
 function closePopup() {
@@ -119,7 +157,10 @@ function renderHostname(hostname = '') {
 }
 
 function renderPanel() {
-    if ( isFileURL(currentURL) ) {
+    if ( isStartPageTab(currentTab, currentURL) ) {
+        dom.text('#hostname span:first-of-type', '');
+        dom.text('#hostname span:last-of-type', '起始頁面');
+    } else if ( isFileURL(currentURL) ) {
         dom.text('#hostname span:first-of-type', '');
         dom.text('#hostname span:last-of-type', '本機檔案');
     } else {
@@ -505,7 +546,7 @@ function bindEvents() {
 
 async function init() {
     currentTab = await getActiveTab();
-    currentURL = new URL(currentTab.url || runtime.getURL('/'));
+    currentURL = tabURL(currentTab);
     renderPanel();
     renderProtectionToggle();
     showPanel();
