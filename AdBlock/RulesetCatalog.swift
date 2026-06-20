@@ -329,6 +329,6 @@ enum RulesetCatalog {
         RulesetInfo(id: "annoyances-social", name: "EasyList - Social Widgets", group: "annoyances", enabled: true, lang: nil, tags: nil),
         RulesetInfo(id: "annoyances-widgets", name: "EasyList - Chat Widgets", group: "annoyances", enabled: true, lang: nil, tags: nil),
         RulesetInfo(id: "annoyances-others", name: "EasyList - Other Annoyances", group: "annoyances", enabled: true, lang: nil, tags: nil),
-        RulesetInfo(id: "annoyances-notifications", name: "EasyList - Notifications", group: "annoyances", enabled: true, lang: nil, tags: nil),
+        RulesetInfo(id: "annoyances-notifications", name: "EasyList - Notifications", group: "annoyances", enabled: false, lang: nil, tags: nil),
     ]
 }

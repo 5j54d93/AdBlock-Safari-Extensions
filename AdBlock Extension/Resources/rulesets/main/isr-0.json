@@ -332,6 +332,8 @@
 {"action":{"redirect":{"extensionPath":"/web_accessible_resources/noop.js"},"type":"redirect"},"condition":{"domainType":"firstParty","resourceTypes":["script"],"urlFilter":"||xads.zedo.com/ads2/c?*.one.co.il/"},"id":331,"priority":41},
 {"action":{"redirect":{"extensionPath":"/web_accessible_resources/noop-0.1s.mp3"},"type":"redirect"},"condition":{"domainType":"thirdParty","resourceTypes":["media"],"urlFilter":"||zerem.biz^*.mp3^"},"id":332,"priority":11},
 {"action":{"redirect":{"extensionPath":"/web_accessible_resources/noop-0.1s.mp3"},"type":"redirect"},"condition":{"domainType":"thirdParty","resourceTypes":["media"],"urlFilter":"||zerem.biz^*.mp3|"},"id":333,"priority":11},
-{"action":{"redirect":{"extensionPath":"/web_accessible_resources/noop-1s.mp4"},"type":"redirect"},"condition":{"domainType":"thirdParty","resourceTypes":["media"],"urlFilter":"||zerem.biz^*.mp4^"},"id":334,"priority":11},
-{"action":{"redirect":{"extensionPath":"/web_accessible_resources/noop-1s.mp4"},"type":"redirect"},"condition":{"domainType":"thirdParty","resourceTypes":["media"],"urlFilter":"||zerem.biz^*.mp4|"},"id":335,"priority":11}
+{"action":{"redirect":{"extensionPath":"/web_accessible_resources/noop-0.1s.mp3"},"type":"redirect"},"condition":{"domainType":"thirdParty","resourceTypes":["media"],"urlFilter":"||zerem.biz^*.mp3|"},"id":334,"priority":11},
+{"action":{"redirect":{"extensionPath":"/web_accessible_resources/noop-1s.mp4"},"type":"redirect"},"condition":{"domainType":"thirdParty","resourceTypes":["media"],"urlFilter":"||zerem.biz^*.mp4^"},"id":335,"priority":11},
+{"action":{"redirect":{"extensionPath":"/web_accessible_resources/noop-1s.mp4"},"type":"redirect"},"condition":{"domainType":"thirdParty","resourceTypes":["media"],"urlFilter":"||zerem.biz^*.mp4|"},"id":336,"priority":11},
+{"action":{"redirect":{"extensionPath":"/web_accessible_resources/noop-1s.mp4"},"type":"redirect"},"condition":{"domainType":"thirdParty","resourceTypes":["media"],"urlFilter":"||zerem.biz^*.mp4|"},"id":337,"priority":11}
 ]

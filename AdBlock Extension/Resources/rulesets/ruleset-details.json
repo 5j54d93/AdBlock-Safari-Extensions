@@ -11,8 +11,8 @@
       "rejected": 1
     },
     "rules": {
-      "total": 6589,
-      "plain": 6374,
+      "total": 6809,
+      "plain": 6594,
       "regex": 215,
       "urlskip": 214,
       "rejected": 0
@@ -35,8 +35,8 @@
       "rejected": 18
     },
     "rules": {
-      "total": 51874,
-      "plain": 51854,
+      "total": 51897,
+      "plain": 51877,
       "regex": 20,
       "rejected": 0
     },
@@ -58,8 +58,8 @@
       "rejected": 30
     },
     "rules": {
-      "total": 55348,
-      "plain": 55341,
+      "total": 55382,
+      "plain": 55375,
       "regex": 7,
       "rejected": 0
     },
@@ -81,8 +81,8 @@
       "rejected": 4
     },
     "rules": {
-      "total": 1533,
-      "plain": 1524,
+      "total": 1562,
+      "plain": 1553,
       "regex": 9,
       "rejected": 0
     },
@@ -104,8 +104,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 81,
-      "plain": 73,
+      "total": 83,
+      "plain": 75,
       "regex": 8,
       "rejected": 0
     },
@@ -148,8 +148,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 2129,
-      "plain": 2128,
+      "total": 2135,
+      "plain": 2134,
       "regex": 1,
       "rejected": 0
     },
@@ -170,8 +170,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 369,
-      "plain": 368,
+      "total": 379,
+      "plain": 378,
       "regex": 1,
       "urlskip": 3,
       "rejected": 0
@@ -252,7 +252,7 @@
     "id": "annoyances-notifications",
     "name": "EasyList – Notifications",
     "group": "annoyances",
-    "enabled": true,
+    "enabled": false,
     "homeURL": "https://github.com/easylist/easylist#fanboy-lists",
     "filters": {
       "total": 482,
@@ -305,8 +305,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 34,
-      "plain": 34,
+      "total": 39,
+      "plain": 39,
       "regex": 0,
       "rejected": 0
     },
@@ -378,8 +378,8 @@
       "rejected": 4
     },
     "rules": {
-      "total": 13146,
-      "plain": 13120,
+      "total": 13170,
+      "plain": 13144,
       "regex": 26,
       "rejected": 0
     },
@@ -403,8 +403,8 @@
       "rejected": 1
     },
     "rules": {
-      "total": 237,
-      "plain": 236,
+      "total": 238,
+      "plain": 237,
       "regex": 1,
       "rejected": 0
     },
@@ -427,8 +427,8 @@
       "rejected": 4
     },
     "rules": {
-      "total": 2204,
-      "plain": 2200,
+      "total": 2213,
+      "plain": 2209,
       "regex": 4,
       "rejected": 0
     },
@@ -475,8 +475,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 202,
-      "plain": 199,
+      "total": 204,
+      "plain": 201,
       "regex": 3,
       "rejected": 0
     },
@@ -499,8 +499,8 @@
       "rejected": 962
     },
     "rules": {
-      "total": 8493,
-      "plain": 8491,
+      "total": 8520,
+      "plain": 8518,
       "regex": 2,
       "rejected": 0
     },
@@ -524,8 +524,8 @@
       "rejected": 1
     },
     "rules": {
-      "total": 476,
-      "plain": 476,
+      "total": 493,
+      "plain": 493,
       "regex": 0,
       "rejected": 0
     },
@@ -548,8 +548,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 134,
-      "plain": 133,
+      "total": 173,
+      "plain": 172,
       "regex": 1,
       "rejected": 0
     },
@@ -572,8 +572,8 @@
       "rejected": 1
     },
     "rules": {
-      "total": 405,
-      "plain": 404,
+      "total": 426,
+      "plain": 425,
       "regex": 1,
       "rejected": 0
     },
@@ -621,8 +621,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 5199,
-      "plain": 5199,
+      "total": 5201,
+      "plain": 5201,
       "regex": 0,
       "rejected": 0
     },
@@ -646,8 +646,8 @@
       "rejected": 1
     },
     "rules": {
-      "total": 1385,
-      "plain": 1384,
+      "total": 1772,
+      "plain": 1771,
       "regex": 1,
       "rejected": 0
     },
@@ -695,8 +695,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 338,
-      "plain": 335,
+      "total": 340,
+      "plain": 337,
       "regex": 3,
       "rejected": 0
     },
@@ -745,8 +745,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 1883,
-      "plain": 1876,
+      "total": 1885,
+      "plain": 1878,
       "regex": 7,
       "rejected": 0
     },
@@ -770,8 +770,8 @@
       "rejected": 1
     },
     "rules": {
-      "total": 1459,
-      "plain": 1313,
+      "total": 1460,
+      "plain": 1314,
       "regex": 146,
       "rejected": 0
     },
@@ -794,8 +794,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 586,
-      "plain": 584,
+      "total": 620,
+      "plain": 618,
       "regex": 2,
       "rejected": 0
     },
@@ -819,8 +819,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 195,
-      "plain": 195,
+      "total": 197,
+      "plain": 197,
       "regex": 0,
       "rejected": 0
     },
@@ -844,8 +844,8 @@
       "rejected": 1
     },
     "rules": {
-      "total": 292,
-      "plain": 292,
+      "total": 293,
+      "plain": 293,
       "regex": 0,
       "rejected": 0
     },
@@ -868,8 +868,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 575,
-      "plain": 574,
+      "total": 583,
+      "plain": 582,
       "regex": 1,
       "rejected": 0
     },
@@ -893,8 +893,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 1164,
-      "plain": 1159,
+      "total": 1360,
+      "plain": 1355,
       "regex": 5,
       "rejected": 0
     },
@@ -918,8 +918,8 @@
       "rejected": 4
     },
     "rules": {
-      "total": 1154,
-      "plain": 1114,
+      "total": 1162,
+      "plain": 1122,
       "regex": 40,
       "rejected": 0
     },
@@ -969,8 +969,8 @@
       "rejected": 7
     },
     "rules": {
-      "total": 17083,
-      "plain": 17067,
+      "total": 17091,
+      "plain": 17075,
       "regex": 16,
       "rejected": 0
     },
@@ -994,8 +994,8 @@
       "rejected": 1
     },
     "rules": {
-      "total": 1393,
-      "plain": 1391,
+      "total": 1399,
+      "plain": 1397,
       "regex": 2,
       "rejected": 0
     },
@@ -1018,8 +1018,8 @@
       "rejected": 1
     },
     "rules": {
-      "total": 630,
-      "plain": 622,
+      "total": 640,
+      "plain": 632,
       "regex": 8,
       "rejected": 0
     },
@@ -1043,8 +1043,8 @@
       "rejected": 2
     },
     "rules": {
-      "total": 1100,
-      "plain": 1093,
+      "total": 1117,
+      "plain": 1110,
       "regex": 7,
       "rejected": 0
     },
@@ -1118,8 +1118,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 786,
-      "plain": 784,
+      "total": 802,
+      "plain": 800,
       "regex": 2,
       "rejected": 0
     },
@@ -1143,8 +1143,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 1563,
-      "plain": 1544,
+      "total": 1602,
+      "plain": 1583,
       "regex": 19,
       "rejected": 0
     },
@@ -1168,8 +1168,8 @@
       "rejected": 0
     },
     "rules": {
-      "total": 3243,
-      "plain": 3223,
+      "total": 3252,
+      "plain": 3232,
       "regex": 20,
       "rejected": 0
     },
