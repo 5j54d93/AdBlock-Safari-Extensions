@@ -1,0 +1,52 @@
+ins.adsbygoogle,
+.adsbygoogle:not(.adsbygoogle-noablate),
+.adsbygoogle-placeholder,
+.google-auto-placed,
+[id^="aswift_"],
+[id^="google_ads_iframe_"],
+iframe[name^="googlefc"],
+iframe[src*="fundingchoicesmessages.google.com"],
+iframe[src*="googlesyndication.com"],
+iframe[src*="googleads.g.doubleclick.net"],
+iframe[src*="doubleclick.net"],
+.fc-dialog-container,
+.fc-dialog-overlay,
+.fc-consent-root,
+.fc-whitelist-root,
+[id^="googlefc"],
+[class*="fc-dialog"],
+[class*="fc-offerwall"],
+[class*="fc-reward"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+ins.adsbygoogle,
+.adsbygoogle:not(.adsbygoogle-noablate),
+.adsbygoogle-placeholder,
+.google-auto-placed,
+[id^="aswift_"],
+[id^="google_ads_iframe_"] {
+    block-size: 0 !important;
+    inline-size: 0 !important;
+    min-block-size: 0 !important;
+    min-inline-size: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+}
+
+:is(div, aside, section):has(> ins.adsbygoogle:only-child),
+:is(div, aside, section):has(> .adsbygoogle:only-child),
+:is(div, aside, section)[id*="ad" i]:has(ins.adsbygoogle),
+:is(div, aside, section)[class*="ad" i]:has(ins.adsbygoogle) {
+    display: none !important;
+    block-size: 0 !important;
+    min-block-size: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+}

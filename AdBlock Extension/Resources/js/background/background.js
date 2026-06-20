@@ -49,6 +49,7 @@ import {
 
 import {
     enableRulesets,
+    needsDynamicRulesUpdate,
     patchDefaultRulesets,
     updateDynamicRules,
     updateSessionRules,
@@ -217,17 +218,19 @@ async function setProtectionEnabled(enabled) {
 async function sendNativeMessageToMacApp(message) {
     if ( typeof runtime.sendNativeMessage !== 'function' ) { return; }
     let lastReason;
+    // Safari delivers to the app's handler with the single-argument form, so try
+    // it first; probing host identifiers only wastes failed round-trips there.
+    try {
+        return await runtime.sendNativeMessage(message);
+    } catch(reason) {
+        lastReason = reason;
+    }
     for ( const host of MAC_APP_NATIVE_HOSTS ) {
         try {
             return await runtime.sendNativeMessage(host, message);
         } catch(reason) {
             lastReason = reason;
         }
-    }
-    try {
-        return await runtime.sendNativeMessage(message);
-    } catch(reason) {
-        lastReason = reason;
     }
     if ( lastReason !== undefined ) {
         adblockLog(`Mac App settings native message failed: ${lastReason}`);
@@ -435,6 +438,41 @@ async function syncMacAppSettingsFromNative() {
 
 /******************************************************************************/
 
+let customFilterOpQueue = Promise.resolve();
+
+function queueCustomFilterOp(operation) {
+    const next = customFilterOpQueue.then(operation, operation);
+    customFilterOpQueue = next.catch(( ) => {});
+    return next;
+}
+
+async function persistCustomFilterChange(command, request) {
+    const hostname = typeof request.hostname === 'string'
+        ? request.hostname.trim().toLowerCase()
+        : '';
+    const selector = typeof request.selector === 'string'
+        ? request.selector.trim()
+        : '';
+    if ( hostname === '' || selector === '' ) {
+        return { ok: false, reason: 'invalid-arguments' };
+    }
+
+    const message = { command, hostname, selector };
+    if ( command === 'addCustomFilter' && typeof request.label === 'string' ) {
+        message.label = request.label;
+    }
+
+    const response = await sendNativeMessageToMacApp(message);
+    if ( response?.ok !== true ) {
+        return { ok: false, reason: 'native-write-failed', detail: response };
+    }
+
+    await syncMacAppSettingsFromNative();
+    return { ok: true };
+}
+
+/******************************************************************************/
+
 async function reloadTab(tabId, url = '') {
     return new Promise(resolve => {
         self.setTimeout(( ) => {
@@ -620,6 +658,16 @@ async function onMessage(request, sender) {
         if ( frameId === false ) { return; }
         return injectCustomFilters(tabId, frameId, request.hostname);
 
+    case 'saveCustomFilter':
+        return queueCustomFilterOp(( ) =>
+            persistCustomFilterChange('addCustomFilter', request)
+        );
+
+    case 'removeCustomFilter':
+        return queueCustomFilterOp(( ) =>
+            persistCustomFilterChange('removeCustomFilter', request)
+        );
+
     default:
         break;
     }
@@ -654,11 +702,18 @@ async function startSession() {
     }
 
     const rulesetsUpdated = await enableRulesets(runtimeSettings.enabledRulesets);
+    const dynamicRulesUpdateNeeded = await needsDynamicRulesUpdate();
+    if ( rulesetsUpdated?.error === undefined &&
+        Array.isArray(rulesetsUpdated?.enabledRulesets) ) {
+        runtimeSettings.enabledRulesets = rulesetsUpdated.enabledRulesets;
+        saveRuntimeSettings();
+    }
 
-    // We need to update the regex rules only when ruleset version changes.
-    if ( rulesetsUpdated === undefined ) {
-        if ( isNewVersion ) {
-            updateDynamicRules();
+    // Dynamic rules are expensive to rebuild, so only refresh them on version
+    // changes or when the dynamic-rule schema changes.
+    if ( rulesetsUpdated === undefined || rulesetsUpdated.normalizedOnly === true ) {
+        if ( isNewVersion || dynamicRulesUpdateNeeded ) {
+            await updateDynamicRules();
         } else {
             updateSessionRules();
         }
@@ -776,5 +831,32 @@ if ( browser.alarms instanceof Object ) {
         isFullyInitialized.then(( ) => {
             syncMacAppSettingsFromNative();
         });
+    });
+}
+
+// Pull Mac App settings promptly when the user returns to Safari, instead of
+// waiting for the next polling alarm. A no-op sync is cheap (one native read
+// gated by the settings revision), and a short debounce avoids bursts.
+let macAppSyncDebounceTimer;
+function requestMacAppSettingsSync() {
+    if ( macAppSyncDebounceTimer !== undefined ) { return; }
+    macAppSyncDebounceTimer = self.setTimeout(( ) => {
+        macAppSyncDebounceTimer = undefined;
+        isFullyInitialized.then(( ) => {
+            syncMacAppSettingsFromNative();
+        });
+    }, 250);
+}
+
+if ( browser.windows?.onFocusChanged instanceof Object ) {
+    browser.windows.onFocusChanged.addListener(windowId => {
+        if ( windowId === browser.windows.WINDOW_ID_NONE ) { return; }
+        requestMacAppSettingsSync();
+    });
+}
+
+if ( browser.tabs?.onActivated instanceof Object ) {
+    browser.tabs.onActivated.addListener(( ) => {
+        requestMacAppSettingsSync();
     });
 }

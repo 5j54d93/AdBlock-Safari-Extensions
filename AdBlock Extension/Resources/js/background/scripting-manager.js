@@ -31,13 +31,20 @@ import { registerToolbarIconToggler } from './action.js';
 /******************************************************************************/
 
 const detailCache = new Map();
-const CONTENT_SCRIPT_REGISTRATION_VERSION = 15;
+const CONTENT_SCRIPT_REGISTRATION_VERSION = 24;
 const CONTENT_SCRIPT_REGISTRATION_VERSION_KEY = 'scripting.manager.registration.version';
 const CSS_CACHE_PREFIX = 'cache.css.';
 const CSS_SPECIFIC_PREFIX = 'css.specific.';
 const LEGACY_CSS_PROCEDURAL_PREFIX = 'css.procedural.';
+const FACEBOOK_HOSTNAME = 'facebook.com';
+const INSTAGRAM_HOSTNAME = 'instagram.com';
 const YAHOO_HOSTNAME = 'yahoo.com';
+const YOUTUBE_HOSTNAME = 'youtube.com';
 const SKIP_SAFARI_BROAD_CONTENT_SCRIPTS = webextFlavor === 'safari';
+const SAFARI_BROAD_CONTENT_SCRIPT_ALLOW_IDS = new Set([
+    'css-generic-all',
+    'early-ad-hiding',
+]);
 const SCRIPTLET_COMPATIBILITY_EXCLUDED_HOSTNAMES = [
     'facebook.com',
 ];
@@ -106,7 +113,8 @@ function safariExplicitMatches(hostnameIters) {
 function addContentScript(context, directive) {
     if (
         SKIP_SAFARI_BROAD_CONTENT_SCRIPTS &&
-        hasBroadMatches(directive.matches)
+        hasBroadMatches(directive.matches) &&
+        SAFARI_BROAD_CONTENT_SCRIPT_ALLOW_IDS.has(directive.id) === false
     ) {
         return false;
     }
@@ -406,6 +414,242 @@ function addAdSlotCollapser(context) {
 
 /******************************************************************************/
 
+function facebookFilteringMatches(filteringModeDetails) {
+    const activeModes = [
+        ...filteringModeDetails.optimal,
+        ...filteringModeDetails.complete,
+    ];
+
+    if (
+        filteringModeDetails.optimal.has('all-urls') ||
+        filteringModeDetails.complete.has('all-urls') ||
+        activeModes.includes(FACEBOOK_HOSTNAME)
+    ) {
+        return [ hostnames.matchFromHostname(FACEBOOK_HOSTNAME) ];
+    }
+
+    return hostnames.matchesFromHostnames(
+        activeModes.filter(hostname =>
+            hostname === FACEBOOK_HOSTNAME ||
+            hostname.endsWith(`.${FACEBOOK_HOSTNAME}`)
+        )
+    );
+}
+
+function addFacebookStoryMute(context) {
+    const { filteringModeDetails } = context;
+    const matches = facebookFilteringMatches(filteringModeDetails);
+    if ( matches.length === 0 ) { return; }
+
+    const excludeMatches = hostnames.matchesFromHostnames([
+        ...filteringModeDetails.none,
+        ...filteringModeDetails.basic,
+    ].filter(hostname =>
+        hostname === 'all-urls' ||
+        hostname === FACEBOOK_HOSTNAME ||
+        hostname.endsWith(`.${FACEBOOK_HOSTNAME}`)
+    ));
+
+    const directive = {
+        id: 'facebook-story-mute',
+        js: [
+            '/js/content-scripts/facebook-story-mute.js',
+        ],
+        matches,
+        runAt: 'document_start',
+        world: 'MAIN',
+    };
+    if ( excludeMatches.length !== 0 ) {
+        directive.excludeMatches = excludeMatches;
+    }
+
+    addContentScript(context, directive);
+}
+
+/******************************************************************************/
+
+function addFacebookAdPruner(context) {
+    const { filteringModeDetails } = context;
+    const matches = facebookFilteringMatches(filteringModeDetails);
+    if ( matches.length === 0 ) { return; }
+
+    const excludeMatches = hostnames.matchesFromHostnames([
+        ...filteringModeDetails.none,
+        ...filteringModeDetails.basic,
+    ].filter(hostname =>
+        hostname === 'all-urls' ||
+        hostname === FACEBOOK_HOSTNAME ||
+        hostname.endsWith(`.${FACEBOOK_HOSTNAME}`)
+    ));
+
+    const directive = {
+        id: 'facebook-ad-prune',
+        js: [
+            '/js/content-scripts/facebook-ad-prune.js',
+        ],
+        matches,
+        runAt: 'document_start',
+        world: 'MAIN',
+    };
+    if ( excludeMatches.length !== 0 ) {
+        directive.excludeMatches = excludeMatches;
+    }
+
+    addContentScript(context, directive);
+}
+
+/******************************************************************************/
+
+function youtubeFilteringMatches(filteringModeDetails) {
+    const activeModes = [
+        ...filteringModeDetails.optimal,
+        ...filteringModeDetails.complete,
+    ];
+
+    if (
+        filteringModeDetails.optimal.has('all-urls') ||
+        filteringModeDetails.complete.has('all-urls') ||
+        activeModes.includes(YOUTUBE_HOSTNAME)
+    ) {
+        return [ hostnames.matchFromHostname(YOUTUBE_HOSTNAME) ];
+    }
+
+    return hostnames.matchesFromHostnames(
+        activeModes.filter(hostname =>
+            hostname === YOUTUBE_HOSTNAME ||
+            hostname.endsWith(`.${YOUTUBE_HOSTNAME}`)
+        )
+    );
+}
+
+function addYouTubeAdPruner(context) {
+    const { filteringModeDetails } = context;
+    const matches = youtubeFilteringMatches(filteringModeDetails);
+    if ( matches.length === 0 ) { return; }
+
+    const excludeMatches = hostnames.matchesFromHostnames([
+        ...filteringModeDetails.none,
+        ...filteringModeDetails.basic,
+    ].filter(hostname =>
+        hostname === 'all-urls' ||
+        hostname === YOUTUBE_HOSTNAME ||
+        hostname.endsWith(`.${YOUTUBE_HOSTNAME}`)
+    ));
+
+    const directive = {
+        id: 'youtube-ad-prune',
+        js: [
+            '/js/content-scripts/youtube-ad-prune.js',
+        ],
+        matches,
+        runAt: 'document_start',
+        world: 'MAIN',
+    };
+    if ( excludeMatches.length !== 0 ) {
+        directive.excludeMatches = excludeMatches;
+    }
+
+    addContentScript(context, directive);
+}
+
+/******************************************************************************/
+
+function instagramFilteringMatches(filteringModeDetails) {
+    const activeModes = [
+        ...filteringModeDetails.optimal,
+        ...filteringModeDetails.complete,
+    ];
+
+    if (
+        filteringModeDetails.optimal.has('all-urls') ||
+        filteringModeDetails.complete.has('all-urls') ||
+        activeModes.includes(INSTAGRAM_HOSTNAME)
+    ) {
+        return [ hostnames.matchFromHostname(INSTAGRAM_HOSTNAME) ];
+    }
+
+    return hostnames.matchesFromHostnames(
+        activeModes.filter(hostname =>
+            hostname === INSTAGRAM_HOSTNAME ||
+            hostname.endsWith(`.${INSTAGRAM_HOSTNAME}`)
+        )
+    );
+}
+
+function addInstagramAdPruner(context) {
+    const { filteringModeDetails } = context;
+    const matches = instagramFilteringMatches(filteringModeDetails);
+    if ( matches.length === 0 ) { return; }
+
+    const excludeMatches = hostnames.matchesFromHostnames([
+        ...filteringModeDetails.none,
+        ...filteringModeDetails.basic,
+    ].filter(hostname =>
+        hostname === 'all-urls' ||
+        hostname === INSTAGRAM_HOSTNAME ||
+        hostname.endsWith(`.${INSTAGRAM_HOSTNAME}`)
+    ));
+
+    const directive = {
+        id: 'instagram-ad-prune',
+        js: [
+            '/js/content-scripts/instagram-ad-prune.js',
+        ],
+        matches,
+        runAt: 'document_start',
+        world: 'MAIN',
+    };
+    if ( excludeMatches.length !== 0 ) {
+        directive.excludeMatches = excludeMatches;
+    }
+
+    addContentScript(context, directive);
+}
+
+/******************************************************************************/
+
+function addEarlyAdHiding(context) {
+    const { filteringModeDetails } = context;
+    const { none, basic, optimal, complete } = filteringModeDetails;
+    let matches = [];
+    let excludeMatches = [];
+
+    if ( complete.has('all-urls') || optimal.has('all-urls') ) {
+        matches = [ '<all_urls>' ];
+        excludeMatches = [
+            ...hostnames.matchesFromHostnames(none),
+            ...hostnames.matchesFromHostnames(basic),
+        ];
+    } else {
+        matches = [
+            ...hostnames.matchesFromHostnames(complete),
+            ...hostnames.matchesFromHostnames(optimal),
+        ];
+    }
+    if ( matches.length === 0 ) { return; }
+
+    const directive = {
+        id: 'early-ad-hiding',
+        css: [
+            '/styles/early-ad-hiding.css',
+        ],
+        js: [
+            '/js/content-scripts/early-ad-cleanup.js',
+        ],
+        matches,
+        allFrames: true,
+        matchOriginAsFallback: true,
+        runAt: 'document_start',
+    };
+    if ( excludeMatches.length !== 0 ) {
+        directive.excludeMatches = excludeMatches;
+    }
+
+    addContentScript(context, directive);
+}
+
+/******************************************************************************/
+
 export async function registerContentScripts() {
     if ( browser.scripting === undefined ) { return false; }
 
@@ -442,6 +686,11 @@ async function registerContentScriptsNow() {
         registerPreventPopup(context),
         registerToolbarIconToggler(context),
     ]);
+    addEarlyAdHiding(context);
+    addFacebookAdPruner(context);
+    addFacebookStoryMute(context);
+    addInstagramAdPruner(context);
+    addYouTubeAdPruner(context);
     addAdSlotCollapser(context);
     addGenericCosmeticScripts(context, genericDetails);
     addScriptletScripts(context, scriptletDetails);

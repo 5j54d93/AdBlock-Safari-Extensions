@@ -19,6 +19,46 @@ import { fetchJSON } from '../shared/fetch.js';
 const SPECIAL_RULES_REALM = 5000000;
 const TRUSTED_DIRECTIVE_BASE_RULE_ID = 8000000;
 const TRUSTED_DIRECTIVE_PRIORITY = 2000000;
+const FALLBACK_MAX_ENABLED_STATIC_RULESETS = 10;
+const DYNAMIC_RULES_VERSION = 4;
+const DYNAMIC_RULES_VERSION_KEY = 'rulesetService.dynamicRules.version';
+const FACEBOOK_AD_FALLBACK_PRIORITY = 40;
+const GOOGLE_AD_FALLBACK_PRIORITY = 40;
+
+/******************************************************************************/
+
+function maxEnabledStaticRulesets() {
+    const value = Number(dnr.MAX_NUMBER_OF_ENABLED_STATIC_RULESETS);
+    return Number.isInteger(value) && value > 0
+        ? value
+        : FALLBACK_MAX_ENABLED_STATIC_RULESETS;
+}
+
+function normalizeEnabledRulesetIds(ids, rulesetDetails) {
+    const limit = maxEnabledStaticRulesets();
+    const out = [];
+    const seen = new Set();
+    let changed = Array.isArray(ids) === false;
+
+    for ( const id of Array.isArray(ids) ? ids : [] ) {
+        if ( typeof id !== 'string' || rulesetDetails.has(id) === false ) {
+            changed = true;
+            continue;
+        }
+        if ( seen.has(id) ) {
+            changed = true;
+            continue;
+        }
+        seen.add(id);
+        if ( out.length >= limit ) {
+            changed = true;
+            continue;
+        }
+        out.push(id);
+    }
+
+    return { ids: out, changed };
+}
 
 /******************************************************************************/
 
@@ -85,6 +125,11 @@ async function getDynamicRegexRuleCount() {
     return regexRules.length;
 }
 
+async function needsDynamicRulesUpdate() {
+    const version = await localRead(DYNAMIC_RULES_VERSION_KEY);
+    return version !== DYNAMIC_RULES_VERSION;
+}
+
 /******************************************************************************/
 
 async function updateRegexRules(currentRules, addRules, removeRuleIds) {
@@ -125,6 +170,133 @@ async function updateRegexRules(currentRules, addRules, removeRuleIds) {
 
 /******************************************************************************/
 
+function addAdSenseBootstrapRules(addRules) {
+    addRules.push(
+        {
+            action: {
+                type: 'block',
+            },
+            condition: {
+                resourceTypes: [ 'script' ],
+                urlFilter: '||pagead2.googlesyndication.com/pagead/js/adsbygoogle.js',
+            },
+            priority: GOOGLE_AD_FALLBACK_PRIORITY,
+        },
+        {
+            action: {
+                type: 'block',
+            },
+            condition: {
+                resourceTypes: [ 'script' ],
+                urlFilter: '||googlesyndication.com/pagead/js/adsbygoogle.js',
+            },
+            priority: GOOGLE_AD_FALLBACK_PRIORITY,
+        },
+        {
+            action: { type: 'block' },
+            condition: {
+                resourceTypes: [ 'script' ],
+                urlFilter: '||pagead2.googlesyndication.com/pagead/show_ads.js',
+            },
+            priority: GOOGLE_AD_FALLBACK_PRIORITY,
+        },
+        {
+            action: { type: 'block' },
+            condition: {
+                resourceTypes: [ 'script' ],
+                urlFilter: '||pagead2.googlesyndication.com/pagead/managed/js/',
+            },
+            priority: GOOGLE_AD_FALLBACK_PRIORITY,
+        },
+        {
+            action: { type: 'block' },
+            condition: {
+                resourceTypes: [
+                    'image',
+                    'media',
+                    'object',
+                    'other',
+                    'script',
+                    'sub_frame',
+                    'xmlhttprequest',
+                ],
+                urlFilter: '||fundingchoicesmessages.google.com/',
+            },
+            priority: GOOGLE_AD_FALLBACK_PRIORITY,
+        },
+        {
+            action: { type: 'block' },
+            condition: {
+                resourceTypes: [
+                    'image',
+                    'media',
+                    'object',
+                    'other',
+                    'script',
+                    'sub_frame',
+                    'xmlhttprequest',
+                ],
+                urlFilter: '||googleads.g.doubleclick.net/pagead/',
+            },
+            priority: GOOGLE_AD_FALLBACK_PRIORITY,
+        },
+        {
+            action: { type: 'block' },
+            condition: {
+                resourceTypes: [
+                    'image',
+                    'media',
+                    'object',
+                    'other',
+                    'script',
+                    'sub_frame',
+                    'xmlhttprequest',
+                ],
+                urlFilter: '||safeframe.googlesyndication.com/',
+            },
+            priority: GOOGLE_AD_FALLBACK_PRIORITY,
+        },
+        {
+            action: { type: 'block' },
+            condition: {
+                resourceTypes: [
+                    'image',
+                    'media',
+                    'object',
+                    'other',
+                    'script',
+                    'sub_frame',
+                    'xmlhttprequest',
+                ],
+                urlFilter: '||tpc.googlesyndication.com/',
+            },
+            priority: GOOGLE_AD_FALLBACK_PRIORITY,
+        }
+    );
+}
+
+/******************************************************************************/
+
+function addFacebookAdAssetRules(addRules) {
+    addRules.push({
+        action: {
+            type: 'block',
+        },
+        condition: {
+            initiatorDomains: [
+                'facebook.com',
+            ],
+            resourceTypes: [
+                'image',
+            ],
+            urlFilter: '||fbcdn.net/v/t45.1600-4/',
+        },
+        priority: FACEBOOK_AD_FALLBACK_PRIORITY,
+    });
+}
+
+/******************************************************************************/
+
 async function updateDynamicRules() {
     const currentRules = await dnr.getDynamicRules();
 
@@ -137,6 +309,8 @@ async function updateDynamicRules() {
     }
 
     const addRules = [];
+    addAdSenseBootstrapRules(addRules);
+    addFacebookAdAssetRules(addRules);
     await updateRegexRules(currentRules, addRules, removeRuleIds);
     if ( addRules.length === 0 && removeRuleIds.length === 0 ) { return; }
 
@@ -175,6 +349,9 @@ async function updateDynamicRules() {
     const result = await updateSessionRules();
     if ( result?.error ) {
         response.error ||= result.error;
+    }
+    if ( response.error === undefined ) {
+        localWrite(DYNAMIC_RULES_VERSION_KEY, DYNAMIC_RULES_VERSION);
     }
 
     return response;
@@ -291,9 +468,11 @@ async function patchDefaultRulesets() {
     const [
         oldDefaultIds = [],
         newDefaultIds,
+        rulesetDetails,
     ] = await Promise.all([
         localRead('defaultRulesetIds'),
         getDefaultRulesetsFromEnv(),
+        getRulesetDetails(),
     ]);
     const toAdd = [];
     const toRemove = [];
@@ -310,15 +489,19 @@ async function patchDefaultRulesets() {
     const enabledRulesets = new Set(runtimeSettings.enabledRulesets);
     toAdd.forEach(id => enabledRulesets.add(id));
     toRemove.forEach(id => enabledRulesets.delete(id));
-    const patchedRulesets = Array.from(enabledRulesets);
+    const requestedRulesets = Array.from(enabledRulesets);
+    const { ids: patchedRulesets, changed } =
+        normalizeEnabledRulesetIds(requestedRulesets, rulesetDetails);
     adblockLog(`Patched rulesets: ${runtimeSettings.enabledRulesets} => ${patchedRulesets}`);
+    if ( changed ) {
+        adblockLog(`Normalized rulesets: ${requestedRulesets} => ${patchedRulesets}`);
+    }
     runtimeSettings.enabledRulesets = patchedRulesets;
 }
 
 /******************************************************************************/
 
 async function enableRulesets(ids) {
-    const afterIds = new Set(ids);
     const [
         beforeIds,
         rulesetDetails,
@@ -326,6 +509,14 @@ async function enableRulesets(ids) {
         dnr.getEnabledRulesets().then(ids => new Set(ids)),
         getRulesetDetails(),
     ]);
+    const {
+        ids: normalizedIds,
+        changed: normalizedOnly,
+    } = normalizeEnabledRulesetIds(ids, rulesetDetails);
+    if ( normalizedOnly ) {
+        adblockLog(`Normalized requested rulesets: ${ids} => ${normalizedIds}`);
+    }
+    const afterIds = new Set(normalizedIds);
 
     const enableRulesetSet = new Set();
     const disableRulesetSet = new Set();
@@ -349,7 +540,11 @@ async function enableRulesets(ids) {
         disableRulesetSet.delete(id);
     }
 
-    if ( enableRulesetSet.size === 0 && disableRulesetSet.size === 0 ) { return; }
+    if ( enableRulesetSet.size === 0 && disableRulesetSet.size === 0 ) {
+        return normalizedOnly
+            ? { enabledRulesets: normalizedIds, normalizedOnly: true }
+            : undefined;
+    }
 
     const enableRulesetIds = Array.from(enableRulesetSet);
     const disableRulesetIds = Array.from(disableRulesetSet);
@@ -416,6 +611,7 @@ export {
     applyFilteringModesToDNR,
     getEnabledRulesetsDetails,
     getRulesetDetails,
+    needsDynamicRulesUpdate,
     patchDefaultRulesets,
     updateDynamicRules,
     updateSessionRules,
