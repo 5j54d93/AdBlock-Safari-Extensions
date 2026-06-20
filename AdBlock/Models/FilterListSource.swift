@@ -13,7 +13,15 @@ struct FilterListSource: Identifiable {
     let rulesets: [RulesetInfo]
 
     var countText: String {
-        "\(rulesets.count) 份清單"
+        if optimizedRulesetCount > 0 {
+            return "\(rulesets.count) 份清單 · \(optimizedRulesetCount) 份已優化"
+        }
+
+        return "\(rulesets.count) 份清單"
+    }
+
+    var optimizedRulesetCount: Int {
+        rulesets.filter { Self.isOptimized($0) }.count
     }
 
     var isGitHubSource: Bool {
@@ -21,11 +29,16 @@ struct FilterListSource: Identifiable {
         return Self.displayHost(from: host) == "github.com"
     }
 
+    func isOptimized(_ ruleset: RulesetInfo) -> Bool {
+        Self.isOptimized(ruleset)
+    }
+
     static func make(from rulesets: [RulesetInfo]) -> [FilterListSource] {
         var order: [String] = []
         var rulesetsBySource: [String: [RulesetInfo]] = [:]
 
         for ruleset in rulesets {
+            guard shouldListSource(for: ruleset) else { continue }
             guard let sourceURLString = normalizedURLString(
                 from: ruleset.homeURL ?? fallbackHomeURL(for: ruleset.id)
             ) else { continue }
@@ -53,6 +66,54 @@ struct FilterListSource: Identifiable {
         "https://github.com/AdguardTeam/AdguardFilters": "AdGuard Filters",
         "https://github.com/easylist/easylist": "EasyList / Fanboy Lists",
     ]
+
+    private static let optimizedRulesetIDs: Set<String> = [
+        "alb-0",
+        "cze-0",
+        "fin-0",
+        "isr-0",
+        "kor-1",
+    ]
+
+    private static let omittedSourceRulesetIDs: Set<String> = [
+        "adguard-mobile",
+        "annoyances-cookies",
+        "annoyances-overlays",
+        "block-lan",
+        "chn-0",
+        "deu-0",
+        "easylist",
+        "easyprivacy",
+        "fra-0",
+        "grc-0",
+        "hrv-0",
+        "hun-0",
+        "ind-0",
+        "irn-0",
+        "jpn-1",
+        "ltu-0",
+        "lva-0",
+        "mkd-0",
+        "nld-0",
+        "nor-0",
+        "pol-0",
+        "rus-0",
+        "rus-1",
+        "spa-0",
+        "spa-1",
+        "tha-0",
+        "tur-0",
+        "ublock-filters",
+        "ukr-0",
+    ]
+
+    private static func shouldListSource(for ruleset: RulesetInfo) -> Bool {
+        omittedSourceRulesetIDs.contains(ruleset.id) == false
+    }
+
+    private static func isOptimized(_ ruleset: RulesetInfo) -> Bool {
+        optimizedRulesetIDs.contains(ruleset.id)
+    }
 
     private static func normalizedURLString(from value: String?) -> String? {
         guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),

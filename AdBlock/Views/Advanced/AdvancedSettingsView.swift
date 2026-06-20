@@ -10,7 +10,7 @@ struct AdvancedSettingsView: View {
     @State private var isConfirmingReset = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 28) {
+        VStack(alignment: .leading, spacing: 24) {
             SettingsGroup(
                 title: "備份與還原",
                 footer: "備份檔包含過濾模式、行為、防護清單與個別網站例外。匯入後會覆蓋目前設定，並同步到 Safari 延伸功能。"
@@ -87,13 +87,13 @@ struct AdvancedSettingsView: View {
                 if let settingsTransferError = viewModel.settingsTransferError {
                     Text(settingsTransferError)
                         .font(AppFont.supporting)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(AppTheme.danger)
                 }
 
                 if let saveError = viewModel.saveError {
                     Text(saveError)
                         .font(AppFont.supporting)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(AppTheme.danger)
                 }
 
             }

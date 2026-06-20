@@ -33,13 +33,53 @@ extension SettingsViewModel {
         persistSiteExceptions()
     }
 
+    func moveSiteException(_ sourceID: UUID, to destinationID: UUID) {
+        guard sourceID != destinationID,
+              let sourceIndex = siteExceptions.firstIndex(where: { $0.id == sourceID }),
+              let destinationIndex = siteExceptions.firstIndex(where: { $0.id == destinationID }) else {
+            return
+        }
+
+        let targetOffset = destinationIndex > sourceIndex ? destinationIndex + 1 : destinationIndex
+        let exception = siteExceptions.remove(at: sourceIndex)
+        let adjustedTarget = sourceIndex < targetOffset ? targetOffset - 1 : targetOffset
+        siteExceptions.insert(exception, at: min(adjustedTarget, siteExceptions.count))
+        persistSiteExceptions()
+    }
+
+    func sortSiteExceptionsByDomain() {
+        siteExceptions.sort { lhs, rhs in
+            Self.compareDomains(lhs.normalizedDomain, rhs.normalizedDomain)
+        }
+        persistSiteExceptions()
+    }
+
+    func sortSiteExceptionsByMode() {
+        let modeRank = Dictionary(
+            uniqueKeysWithValues: FilteringMode.allCases.enumerated().map { index, mode in
+                (mode, index)
+            }
+        )
+
+        siteExceptions.sort { lhs, rhs in
+            if lhs.normalizedDomain.isEmpty != rhs.normalizedDomain.isEmpty {
+                return rhs.normalizedDomain.isEmpty
+            }
+            if lhs.mode != rhs.mode {
+                return (modeRank[lhs.mode] ?? 0) < (modeRank[rhs.mode] ?? 0)
+            }
+            return Self.compareDomains(lhs.normalizedDomain, rhs.normalizedDomain)
+        }
+        persistSiteExceptions()
+    }
+
     static func exceptions(from settings: AdBlockSettings) -> [SiteException] {
         var result: [SiteException] = []
         result += settings.noFilteringHostnames.map { SiteException(domain: $0, mode: .none) }
         result += settings.basicFilteringHostnames.map { SiteException(domain: $0, mode: .basic) }
         result += settings.optimalFilteringHostnames.map { SiteException(domain: $0, mode: .optimal) }
         result += settings.completeFilteringHostnames.map { SiteException(domain: $0, mode: .complete) }
-        return result
+        return orderedSiteExceptions(result, preferredOrder: settings.siteExceptionOrder)
     }
 
     private func persistSiteExceptions() {
@@ -65,8 +105,42 @@ extension SettingsViewModel {
         next.basicFilteringHostnames = buckets[.basic] ?? []
         next.optimalFilteringHostnames = buckets[.optimal] ?? []
         next.completeFilteringHostnames = buckets[.complete] ?? []
+        next.siteExceptionOrder = order
 
         guard next != settings else { return }
         persist(next)
+    }
+
+    private static func compareDomains(_ lhs: String, _ rhs: String) -> Bool {
+        if lhs.isEmpty != rhs.isEmpty {
+            return rhs.isEmpty
+        }
+        return lhs.localizedStandardCompare(rhs) == .orderedAscending
+    }
+
+    private static func orderedSiteExceptions(
+        _ exceptions: [SiteException],
+        preferredOrder: [String]
+    ) -> [SiteException] {
+        var remaining: [String: SiteException] = [:]
+        for exception in exceptions where remaining[exception.normalizedDomain] == nil {
+            remaining[exception.normalizedDomain] = exception
+        }
+
+        var ordered: [SiteException] = []
+        for domain in preferredOrder {
+            let normalized = domain
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            guard let exception = remaining.removeValue(forKey: normalized) else { continue }
+            ordered.append(exception)
+        }
+
+        for exception in exceptions where remaining[exception.normalizedDomain] != nil {
+            ordered.append(exception)
+            remaining.removeValue(forKey: exception.normalizedDomain)
+        }
+
+        return ordered
     }
 }

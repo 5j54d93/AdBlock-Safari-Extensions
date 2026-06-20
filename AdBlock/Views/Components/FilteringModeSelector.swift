@@ -9,6 +9,8 @@ struct FilteringModeSelector: View {
     let selectedMode: FilteringMode
     let selectMode: (FilteringMode) -> Void
 
+    private let modes = FilteringMode.allCases
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("預設過濾模式")
@@ -20,17 +22,23 @@ struct FilteringModeSelector: View {
                 .foregroundStyle(AppTheme.text400)
                 .fixedSize(horizontal: false, vertical: true)
 
-            VStack(spacing: 8) {
-                ForEach(FilteringMode.allCases) { mode in
+            VStack(spacing: 0) {
+                ForEach(Array(modes.enumerated()), id: \.element) { index, mode in
                     FilteringModeOptionRow(
                         mode: mode,
                         isSelected: mode == selectedMode,
                         isRecommended: mode == .complete,
+                        showsDivider: index < modes.count - 1,
                         selectMode: selectMode
                     )
                 }
             }
-            .padding(.top, 2)
+            .background(AppTheme.bg000)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(AppTheme.border.opacity(0.16), lineWidth: 0.5)
+            }
         }
     }
 }
@@ -39,6 +47,7 @@ private struct FilteringModeOptionRow: View {
     let mode: FilteringMode
     let isSelected: Bool
     let isRecommended: Bool
+    let showsDivider: Bool
     let selectMode: (FilteringMode) -> Void
     @State private var isHovering = false
 
@@ -62,10 +71,10 @@ private struct FilteringModeOptionRow: View {
                         if isRecommended {
                             Text("預設")
                                 .font(AppFont.metadata)
-                                .foregroundStyle(AppTheme.accent)
+                                .foregroundStyle(AppTheme.brand)
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 2)
-                                .background(AppTheme.accentSoft)
+                                .background(AppTheme.brandSoft)
                                 .clipShape(Capsule())
                         }
                     }
@@ -91,13 +100,15 @@ private struct FilteringModeOptionRow: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(backgroundFill)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(borderColor, lineWidth: isSelected ? 2 : 0.5)
+            .background(backgroundFill)
+            .contentShape(Rectangle())
+            .overlay(alignment: .bottom) {
+                if showsDivider {
+                    Rectangle()
+                        .fill(AppTheme.border.opacity(0.12))
+                        .frame(height: 0.5)
+                        .padding(.horizontal, 14)
+                }
             }
         }
         .buttonStyle(.plain)
@@ -109,16 +120,12 @@ private struct FilteringModeOptionRow: View {
     }
 
     private var backgroundFill: Color {
-        if isHovering && isSelected == false {
+        if isSelected {
+            return AppTheme.accentSoft
+        }
+        if isHovering {
             return AppTheme.bg200
         }
-        return AppTheme.bg000
-    }
-
-    private var borderColor: Color {
-        if isSelected {
-            return AppTheme.accent
-        }
-        return AppTheme.border.opacity(isHovering ? 0.28 : 0.16)
+        return Color.clear
     }
 }

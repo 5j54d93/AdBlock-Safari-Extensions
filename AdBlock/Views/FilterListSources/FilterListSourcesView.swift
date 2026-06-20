@@ -8,14 +8,18 @@ import SwiftUI
 struct FilterListSourcesView: View {
     @ObservedObject var viewModel: SettingsViewModel
 
+    private var listedRulesetCount: Int {
+        viewModel.filterListSources.reduce(0) { $0 + $1.rulesets.count }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 24) {
             SettingsGroup(
                 title: "開源封鎖清單",
                 footer: "清單內容由開源社群長期維護，AdBlock 會將它們轉換成 Safari 可以使用的封鎖規則。"
             ) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("目前內建 \(viewModel.rulesets.count) 份封鎖清單，來自 \(viewModel.filterListSources.count) 個開源來源。")
+                    Text("目前列出 \(listedRulesetCount) 份封鎖清單，來自 \(viewModel.filterListSources.count) 個開源來源。")
                         .font(AppFont.rowTitle)
                         .foregroundStyle(AppTheme.text000)
 
@@ -83,17 +87,10 @@ private struct FilterListSourceCard: View {
 
             LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 8) {
                 ForEach(source.rulesets) { ruleset in
-                    Text(ruleset.displayName)
-                        .font(AppFont.metadata)
-                        .foregroundStyle(AppTheme.text200)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 5)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AppTheme.bg200)
-                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                        .help(ruleset.name)
+                    RulesetSourceBadge(
+                        ruleset: ruleset,
+                        isOptimized: source.isOptimized(ruleset)
+                    )
                 }
             }
         }
@@ -105,6 +102,44 @@ private struct FilterListSourceCard: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(AppTheme.border.opacity(0.16), lineWidth: 0.5)
         }
+    }
+}
+
+private struct RulesetSourceBadge: View {
+    let ruleset: RulesetInfo
+    let isOptimized: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(ruleset.displayName)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .layoutPriority(0)
+
+            if isOptimized {
+                Text("已優化")
+                    .font(AppFont.metadata)
+                    .foregroundStyle(AppTheme.brand)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(AppTheme.brandSoft)
+                    .clipShape(Capsule())
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
+            }
+        }
+        .font(AppFont.metadata)
+        .foregroundStyle(AppTheme.text200)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.bg200)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .help(helpText)
+    }
+
+    private var helpText: String {
+        isOptimized ? "\(ruleset.name) - AdBlock 已少量優化" : ruleset.name
     }
 }
 

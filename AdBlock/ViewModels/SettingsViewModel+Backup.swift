@@ -108,6 +108,10 @@ extension SettingsViewModel {
             importedSettings.completeFilteringHostnames,
             usedHostnames: &usedHostnames
         )
+        nextSettings.siteExceptionOrder = Self.sanitizedSiteExceptionOrder(
+            importedSettings.siteExceptionOrder,
+            settings: nextSettings
+        )
         nextSettings.customFilters = Self.sanitizedCustomFilters(importedSettings.customFilters)
 
         return nextSettings
@@ -128,6 +132,36 @@ extension SettingsViewModel {
             }
             return normalized
         }
+    }
+
+    private static func sanitizedSiteExceptionOrder(
+        _ preferredOrder: [String],
+        settings: AdBlockSettings
+    ) -> [String] {
+        let hostnames = settings.noFilteringHostnames
+            + settings.basicFilteringHostnames
+            + settings.optimalFilteringHostnames
+            + settings.completeFilteringHostnames
+        let validHostnames = Set(hostnames)
+        var usedHostnames = Set<String>()
+        var result: [String] = []
+
+        for hostname in preferredOrder {
+            let normalized = hostname
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            guard validHostnames.contains(normalized),
+                  usedHostnames.insert(normalized).inserted else {
+                continue
+            }
+            result.append(normalized)
+        }
+
+        for hostname in hostnames where usedHostnames.insert(hostname).inserted {
+            result.append(hostname)
+        }
+
+        return result
     }
 
     private static func defaultBackupFileName() -> String {

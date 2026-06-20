@@ -9,7 +9,7 @@ struct RulesetSettingsView: View {
     @ObservedObject var viewModel: SettingsViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 24) {
             RulesetToolbar(viewModel: viewModel)
 
             ForEach(viewModel.filteredRulesetGroups) { group in
@@ -59,7 +59,7 @@ private struct RulesetToolbar: View {
             if atLimit {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.orange)
+                    .foregroundStyle(AppTheme.warning)
                     .accessibilityHidden(true)
             }
 
@@ -67,7 +67,7 @@ private struct RulesetToolbar: View {
                  ? "已達上限 \(AdBlockSettings.maxEnabledRulesets)／\(AdBlockSettings.maxEnabledRulesets) 份（請先關閉其他清單，再開新的）"
                  : "已開啟 \(viewModel.enabledRulesetCount)／\(AdBlockSettings.maxEnabledRulesets) 份（Safari 最多可同時啟用 \(AdBlockSettings.maxEnabledRulesets) 份清單）")
                 .font(AppFont.supporting)
-                .foregroundStyle(atLimit ? Color.orange : AppTheme.text400)
+                .foregroundStyle(atLimit ? AppTheme.warning : AppTheme.text400)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 2)
@@ -180,10 +180,10 @@ private struct RulesetGroupSection: View {
             if isCollapsible {
                 Text("\(group.rulesets.count) 個 · 已開啟 \(enabledCount)")
                     .font(AppFont.metadata)
-                    .foregroundStyle(enabledCount > 0 ? AppTheme.accent : AppTheme.text400)
+                    .foregroundStyle(enabledCount > 0 ? AppTheme.brand : AppTheme.text400)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 2)
-                    .background(enabledCount > 0 ? AppTheme.accentSoft : AppTheme.bg200)
+                    .background(enabledCount > 0 ? AppTheme.brandSoft : AppTheme.bg200)
                     .clipShape(Capsule())
             }
         }
@@ -266,10 +266,10 @@ private struct RulesetRow: View {
                     if ruleset.enabled == true {
                         Text("建議")
                             .font(AppFont.metadata)
-                            .foregroundStyle(AppTheme.accent)
+                            .foregroundStyle(AppTheme.brand)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
-                            .background(AppTheme.accentSoft)
+                            .background(AppTheme.brandSoft)
                             .clipShape(Capsule())
                     }
                 }

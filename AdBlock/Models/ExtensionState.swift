@@ -16,11 +16,11 @@ extension ExtensionState {
     var statusColor: Color {
         switch self {
         case .enabled:
-            return .green
+            return AppTheme.success
         case .disabled:
-            return .orange
+            return AppTheme.warning
         case .unavailable:
-            return .red
+            return AppTheme.danger
         case .unknown:
             return AppTheme.text400
         }
