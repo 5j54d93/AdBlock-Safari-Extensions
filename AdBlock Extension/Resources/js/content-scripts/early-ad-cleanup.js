@@ -44,7 +44,32 @@ const OFFERWALL_TEXT_PATTERN = new RegExp([
     'watch a short ad',
     'site-?wide access',
     'rewarded ad',
+    'ad\\s*blocker',
+    'adblocker',
+    '\\u5ee3\\u544a\\u6514\\u622a\\u5668',
+    '\\u7981\\u6b62\\u4f7f\\u7528\\u5ee3\\u544a\\u6514\\u622a\\u5668',
 ].join('|'), 'i');
+
+const YOUTUBE_HOSTNAME_PATTERN = /(^|\.)youtube\.com$/;
+const YOUTUBE_DOCUMENT_SHELLS = new Set([
+    'ytd-app',
+    'ytm-app',
+]);
+const HIDDEN_STYLE_PROPERTIES = [
+    'display',
+    'visibility',
+    'pointer-events',
+    'block-size',
+    'inline-size',
+    'min-block-size',
+    'min-inline-size',
+    'margin',
+    'padding',
+    'border',
+    'overflow',
+];
+const YOUTUBE_PLAY_RESUME_MS = 3000;
+const YOUTUBE_PLAY_RESUME_INTERVAL_MS = 250;
 
 const OBSERVE_MS = 60000;
 const startedAt = Date.now();
@@ -54,8 +79,112 @@ let scheduled = false;
 let cleanupTimer;
 let pendingReportCount = 0;
 let reportTimer;
+let youtubePlaybackResumeTimer;
+let youtubePlaybackResumeUntil = 0;
 
 /******************************************************************************/
+
+function isYouTubePage() {
+    return YOUTUBE_HOSTNAME_PATTERN.test(self.location.hostname);
+}
+
+function isYouTubeDocumentShell(node) {
+    return node instanceof Element &&
+        isYouTubePage() &&
+        YOUTUBE_DOCUMENT_SHELLS.has(node.localName);
+}
+
+function restoreEarlyHiddenElement(node) {
+    if ( node instanceof HTMLElement === false ) { return; }
+    if ( node.dataset.adblockEarlyHidden !== 'true' ) { return; }
+
+    delete node.dataset.adblockEarlyHidden;
+    for ( const property of HIDDEN_STYLE_PROPERTIES ) {
+        node.style.removeProperty(property);
+    }
+}
+
+function restoreDocumentShells() {
+    if ( isYouTubePage() === false ) { return; }
+
+    for ( const selector of YOUTUBE_DOCUMENT_SHELLS ) {
+        for ( const node of document.querySelectorAll(
+            `${selector}[data-adblock-early-hidden="true"]`
+        ) ) {
+            restoreEarlyHiddenElement(node);
+        }
+    }
+}
+
+function isPlayingMedia(node) {
+    return node instanceof HTMLMediaElement &&
+        node.paused === false &&
+        node.ended === false &&
+        node.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+}
+
+function hasPlayingYouTubeMedia() {
+    for ( const node of document.querySelectorAll('video,audio') ) {
+        if ( isPlayingMedia(node) ) { return true; }
+    }
+    return false;
+}
+
+function attemptYouTubePlaybackResume() {
+    if ( isYouTubePage() === false ) { return; }
+
+    const player = document.getElementById('movie_player');
+    try {
+        if ( typeof player?.playVideo === 'function' ) {
+            player.playVideo();
+        }
+    } catch {
+    }
+
+    for ( const node of document.querySelectorAll('video') ) {
+        if ( node instanceof HTMLMediaElement === false ) { continue; }
+        if ( node.paused === false || node.ended ) { continue; }
+        if ( node.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ) { continue; }
+
+        try {
+            const promise = node.play();
+            if ( promise?.catch instanceof Function ) {
+                promise.catch(() => {});
+            }
+        } catch {
+        }
+    }
+}
+
+function stopYouTubePlaybackResume() {
+    if ( youtubePlaybackResumeTimer === undefined ) { return; }
+    self.clearInterval(youtubePlaybackResumeTimer);
+    youtubePlaybackResumeTimer = undefined;
+}
+
+function tickYouTubePlaybackResume() {
+    if ( hasPlayingYouTubeMedia() || Date.now() > youtubePlaybackResumeUntil ) {
+        stopYouTubePlaybackResume();
+        return;
+    }
+    attemptYouTubePlaybackResume();
+}
+
+function requestYouTubePlaybackResume() {
+    if ( isYouTubePage() === false ) { return; }
+
+    youtubePlaybackResumeUntil = Math.max(
+        youtubePlaybackResumeUntil,
+        Date.now() + YOUTUBE_PLAY_RESUME_MS
+    );
+    attemptYouTubePlaybackResume();
+
+    if ( youtubePlaybackResumeTimer !== undefined ) { return; }
+    youtubePlaybackResumeTimer = self.setInterval(
+        tickYouTubePlaybackResume,
+        YOUTUBE_PLAY_RESUME_INTERVAL_MS
+    );
+}
 
 function reportActivity(count, label = '頁面廣告元素') {
     if ( count <= 0 ) { return; }
@@ -84,6 +213,10 @@ function reportActivity(count, label = '頁面廣告元素') {
 function hideElement(node) {
     if ( node instanceof Element === false ) { return false; }
     if ( node.localName === 'html' || node.localName === 'body' ) { return false; }
+    if ( isYouTubeDocumentShell(node) ) {
+        restoreEarlyHiddenElement(node);
+        return false;
+    }
     if ( node.dataset.adblockEarlyHidden === 'true' ) { return false; }
     node.dataset.adblockEarlyHidden = 'true';
 
@@ -153,6 +286,7 @@ function elementRect(node) {
 
 function isOverlayCandidate(node) {
     if ( node instanceof Element === false ) { return false; }
+    if ( isYouTubeDocumentShell(node) ) { return false; }
     if ( node.parentElement === document.body ) { return true; }
     if ( node.getAttribute('role') === 'dialog' ) { return true; }
     if ( node.getAttribute('aria-modal') === 'true' ) { return true; }
@@ -210,6 +344,8 @@ function hideOverlayCluster(node) {
         'body > iframe',
         '[role="dialog"]',
         '[aria-modal="true"]',
+        'tp-yt-iron-overlay-backdrop',
+        'tp-yt-paper-dialog',
         'div[style*="position: fixed"]',
         'div[style*="position:fixed"]',
         'div[style*="z-index"]',
@@ -243,6 +379,8 @@ function hideOfferwallTextCandidates() {
 }
 
 function cleanup() {
+    restoreDocumentShells();
+
     let hiddenCount = hideSelectorMatches(AD_SELECTORS).length;
 
     const offerwallNodes = hideSelectorMatches(OFFERWALL_SELECTORS);
@@ -256,6 +394,7 @@ function cleanup() {
 
     if ( offerwallNodes.length !== 0 || textOfferwallCount !== 0 ) {
         unlockPageInteraction();
+        requestYouTubePlaybackResume();
     }
     reportActivity(hiddenCount);
 
