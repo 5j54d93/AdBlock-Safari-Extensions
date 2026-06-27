@@ -14,6 +14,7 @@ import {
     MODE_COMPLETE,
     MODE_OPTIMAL,
     getDefaultFilteringMode,
+    getFilteringMode,
     getFilteringModeDetails,
     setDefaultFilteringMode,
     setFilteringModeDetails,
@@ -36,6 +37,9 @@ import {
     localRead, localRemove, localWrite,
     runtime,
     sessionAccessLevel,
+    sessionKeys,
+    sessionRead,
+    sessionWrite,
     supportsUserScripts,
     webextFlavor,
 } from '../shared/ext.js';
@@ -441,7 +445,14 @@ async function syncMacAppSettingsFromNative() {
 let customFilterOpQueue = Promise.resolve();
 const MAX_CONTENT_SCRIPT_ACTIVITY_PER_TAB = 500;
 const CONTENT_SCRIPT_ACTIVITY_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+const MAX_DIAGNOSTIC_EVENTS_PER_TAB = 240;
+const DIAGNOSTIC_EVENTS_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+const DIAGNOSTIC_STRING_MAX_LENGTH = 240;
+const DIAGNOSTIC_ARRAY_MAX_ITEMS = 40;
+const DIAGNOSTIC_OBJECT_MAX_KEYS = 40;
+const DIAGNOSTIC_EVENTS_STORAGE_PREFIX = 'diagnostic.events.';
 const contentScriptActivityByTab = new Map();
+const diagnosticEventsByTab = new Map();
 
 function queueCustomFilterOp(operation) {
     const next = customFilterOpQueue.then(operation, operation);
@@ -559,6 +570,582 @@ function getContentScriptActivity(request) {
         capturedAt: Date.now(),
         minTimeStamp,
         ok: true,
+    };
+}
+
+function diagnosticEventsStorageKey(tabId) {
+    return `${DIAGNOSTIC_EVENTS_STORAGE_PREFIX}${tabId}`;
+}
+
+function diagnosticEventKey(event) {
+    return [
+        event.timeStamp,
+        event.frameId,
+        event.source,
+        event.eventName,
+    ].join('|');
+}
+
+async function readStoredDiagnosticEvents(tabId) {
+    const stored = await sessionRead(diagnosticEventsStorageKey(tabId));
+    return Array.isArray(stored) ? stored : [];
+}
+
+async function pruneDiagnosticEvents(tabId, minTimeStamp = Date.now() - DIAGNOSTIC_EVENTS_MAX_AGE_MS) {
+    const memoryEvents = diagnosticEventsByTab.get(tabId);
+    const events = [
+        ...(Array.isArray(memoryEvents) ? memoryEvents : []),
+        ...await readStoredDiagnosticEvents(tabId),
+    ];
+    if ( events.length === 0 ) { return []; }
+
+    const seen = new Set();
+    const pruned = events
+        .filter(event => event.timeStamp >= minTimeStamp)
+        .sort((a, b) => (a.timeStamp || 0) - (b.timeStamp || 0))
+        .filter(event => {
+            const key = diagnosticEventKey(event);
+            if ( seen.has(key) ) { return false; }
+            seen.add(key);
+            return true;
+        })
+        .slice(-MAX_DIAGNOSTIC_EVENTS_PER_TAB);
+
+    if ( pruned.length === 0 ) {
+        diagnosticEventsByTab.delete(tabId);
+        await sessionWrite(diagnosticEventsStorageKey(tabId), []);
+        return [];
+    }
+
+    diagnosticEventsByTab.set(tabId, pruned);
+    await sessionWrite(diagnosticEventsStorageKey(tabId), pruned);
+
+    return pruned;
+}
+
+function sanitizeDiagnosticValue(value, depth = 0) {
+    if ( value === null || value === undefined ) { return value; }
+    if ( typeof value === 'boolean' ) { return value; }
+    if ( typeof value === 'number' ) {
+        return Number.isFinite(value) ? value : undefined;
+    }
+    if ( typeof value === 'string' ) {
+        return value.slice(0, DIAGNOSTIC_STRING_MAX_LENGTH);
+    }
+    if ( depth >= 3 ) { return '[truncated]'; }
+    if ( Array.isArray(value) ) {
+        return value
+            .slice(0, DIAGNOSTIC_ARRAY_MAX_ITEMS)
+            .map(item => sanitizeDiagnosticValue(item, depth + 1))
+            .filter(item => item !== undefined);
+    }
+    if ( value instanceof Object === false ) { return; }
+
+    const out = {};
+    for ( const [ key, item ] of Object.entries(value).slice(0, DIAGNOSTIC_OBJECT_MAX_KEYS) ) {
+        const safeKey = String(key).slice(0, 80);
+        const safeValue = sanitizeDiagnosticValue(item, depth + 1);
+        if ( safeValue !== undefined ) {
+            out[safeKey] = safeValue;
+        }
+    }
+    return out;
+}
+
+async function recordDiagnosticEvent(request, sender) {
+    const tabId = sender?.tab?.id;
+    if ( Number.isInteger(tabId) === false ) {
+        return { ok: false, reason: 'missing-tab-id' };
+    }
+
+    const eventName = normalizeContentScriptText(
+        request.eventName || request.event || request.name,
+        'event'
+    );
+    if ( eventName === '' ) {
+        return { ok: false, reason: 'missing-event-name' };
+    }
+
+    const event = {
+        details: sanitizeDiagnosticValue(request.details || request.data || {}),
+        eventName,
+        frameId: Number.isInteger(sender?.frameId) ? sender.frameId : undefined,
+        hostname: normalizeContentScriptText(
+            request.hostname,
+            hostnameFromURL(sender?.url || sender?.tab?.url || '')
+        ).toLowerCase(),
+        source: normalizeContentScriptText(request.source, 'content-script'),
+        timeStamp: Date.now(),
+    };
+
+    const events = await pruneDiagnosticEvents(tabId);
+    events.push(event);
+    const nextEvents = events.slice(-MAX_DIAGNOSTIC_EVENTS_PER_TAB);
+    diagnosticEventsByTab.set(tabId, nextEvents);
+    await sessionWrite(diagnosticEventsStorageKey(tabId), nextEvents);
+
+    return { ok: true };
+}
+
+async function getDiagnosticEvents(request) {
+    const minTimeStamp = Number.isFinite(Number(request.minTimeStamp))
+        ? Number(request.minTimeStamp)
+        : Date.now() - (30 * 60 * 1000);
+    const tabId = Number.parseInt(request.tabId, 10);
+
+    let events;
+    if ( Number.isInteger(tabId) ) {
+        events = await pruneDiagnosticEvents(tabId, minTimeStamp);
+    } else {
+        const keys = await sessionKeys() || [];
+        const tabIds = new Set([
+            ...Array.from(diagnosticEventsByTab.keys()),
+            ...keys
+                .filter(key => key.startsWith(DIAGNOSTIC_EVENTS_STORAGE_PREFIX))
+                .map(key => Number.parseInt(key.slice(DIAGNOSTIC_EVENTS_STORAGE_PREFIX.length), 10))
+                .filter(Number.isInteger),
+        ]);
+        events = (await Promise.all(
+            Array.from(tabIds, id => pruneDiagnosticEvents(id, minTimeStamp))
+        )).flat();
+    }
+
+    return {
+        capturedAt: Date.now(),
+        events: events.filter(event => event.timeStamp >= minTimeStamp),
+        minTimeStamp,
+        ok: true,
+    };
+}
+
+function summarizeURLForDiagnostics(value) {
+    if ( typeof value !== 'string' || value === '' ) { return; }
+    try {
+        const url = new URL(value);
+        return {
+            hostname: url.hostname,
+            origin: url.origin,
+            pathname: url.pathname,
+            protocol: url.protocol,
+        };
+    } catch {
+    }
+}
+
+function normalizeDiagnosticMatch(info) {
+    if ( info instanceof Object === false ) { return; }
+    const rule = info.rule instanceof Object ? info.rule : {};
+    const ruleId = Number(rule.ruleId ?? rule.id ?? info.ruleId);
+    const timeStamp = Number(info.timeStamp ?? info.timestamp ?? Date.now());
+    const tabId = Number(info.tabId);
+    const rulesetId = String(rule.rulesetId ?? info.rulesetId ?? '').trim();
+
+    return {
+        request: summarizeURLForDiagnostics(info.request?.url || info.url || ''),
+        ruleId: Number.isFinite(ruleId) ? ruleId : undefined,
+        rulesetId: rulesetId || '__unknown__',
+        tabId: Number.isFinite(tabId) ? tabId : undefined,
+        timeStamp: Number.isFinite(timeStamp) ? timeStamp : Date.now(),
+    };
+}
+
+async function callOptionalExtensionAPI(target, method, ...args) {
+    if ( typeof target?.[method] !== 'function' ) {
+        throw new Error(`${method} is unavailable`);
+    }
+
+    let maybePromise;
+    try {
+        maybePromise = target[method](...args);
+    } catch {
+        maybePromise = undefined;
+    }
+
+    if ( typeof maybePromise?.then === 'function' ) {
+        return maybePromise;
+    }
+    if ( maybePromise !== undefined ) {
+        return maybePromise;
+    }
+
+    return new Promise((resolve, reject) => {
+        try {
+            target[method](...args, result => {
+                const lastError = browser.runtime?.lastError;
+                if ( lastError ) {
+                    reject(new Error(lastError.message));
+                    return;
+                }
+                resolve(result);
+            });
+        } catch(reason) {
+            reject(reason);
+        }
+    });
+}
+
+async function getDNRDiagnosticState(tabId, minTimeStamp) {
+    const api = browser.declarativeNetRequest;
+    const filter = { minTimeStamp };
+    if ( Number.isInteger(tabId) ) {
+        filter.tabId = tabId;
+    }
+
+    const out = {
+        available: false,
+        capturedAt: Date.now(),
+        dynamicRules: [],
+        dynamicRuleCount: undefined,
+        enabledRulesets: [],
+        error: '',
+        matches: [],
+        minTimeStamp,
+        sessionRuleCount: undefined,
+    };
+
+    try {
+        const result = await callOptionalExtensionAPI(api, 'getMatchedRules', filter);
+        const infos = Array.isArray(result?.rulesMatchedInfo)
+            ? result.rulesMatchedInfo
+            : Array.isArray(result)
+                ? result
+                : [];
+        out.available = true;
+        out.matches = infos.map(normalizeDiagnosticMatch).filter(Boolean);
+    } catch(reason) {
+        out.error = reason?.message || String(reason || 'unknown error');
+    }
+
+    try {
+        const enabled = await callOptionalExtensionAPI(api, 'getEnabledRulesets');
+        out.enabledRulesets = Array.isArray(enabled) ? enabled : [];
+    } catch {
+    }
+
+    try {
+        const dynamicRules = await callOptionalExtensionAPI(api, 'getDynamicRules');
+        out.dynamicRuleCount = Array.isArray(dynamicRules) ? dynamicRules.length : undefined;
+        out.dynamicRules = Array.isArray(dynamicRules)
+            ? dynamicRules
+                .filter(rule => {
+                    const condition = rule.condition || {};
+                    const text = `${condition.urlFilter || ''} ${condition.regexFilter || ''}`;
+                    return /youtube|googlevideo|doubleclick|pagead|googlesyndication|googleads/i.test(text);
+                })
+                .slice(0, 120)
+                .map(rule => ({
+                    actionType: rule.action?.type,
+                    condition: {
+                        initiatorDomains: rule.condition?.initiatorDomains,
+                        regexFilter: rule.condition?.regexFilter,
+                        requestDomains: rule.condition?.requestDomains,
+                        requestMethods: rule.condition?.requestMethods,
+                        resourceTypes: rule.condition?.resourceTypes,
+                        urlFilter: rule.condition?.urlFilter,
+                    },
+                    id: rule.id,
+                    priority: rule.priority,
+                }))
+            : [];
+    } catch {
+    }
+
+    try {
+        const sessionRules = await callOptionalExtensionAPI(api, 'getSessionRules');
+        out.sessionRuleCount = Array.isArray(sessionRules) ? sessionRules.length : undefined;
+    } catch {
+    }
+
+    return out;
+}
+
+function collectPageDiagnosticSnapshot() {
+    const isObject = value => value !== null && typeof value === 'object';
+    const safe = (fn, fallback) => {
+        try {
+            return fn();
+        } catch {
+            return fallback;
+        }
+    };
+    const trimText = value => typeof value === 'string'
+        ? value.trim().replace(/\s+/g, ' ').slice(0, 180)
+        : '';
+    const count = selector => safe(() => document.querySelectorAll(selector).length, 0);
+    const classText = element => {
+        const className = element?.className;
+        if ( typeof className === 'string' ) { return trimText(className); }
+        if ( typeof className?.baseVal === 'string' ) { return trimText(className.baseVal); }
+        return '';
+    };
+    const elementSummary = element => safe(() => {
+        if ( element instanceof Element === false ) { return; }
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+            ariaLabel: trimText(element.getAttribute('aria-label') || ''),
+            classes: classText(element),
+            hidden: element.hidden === true,
+            id: trimText(element.id || ''),
+            rect: {
+                height: Math.round(rect.height),
+                width: Math.round(rect.width),
+                x: Math.round(rect.x),
+                y: Math.round(rect.y),
+            },
+            role: trimText(element.getAttribute('role') || ''),
+            style: {
+                display: style.display,
+                pointerEvents: style.pointerEvents,
+                position: style.position,
+                visibility: style.visibility,
+                zIndex: style.zIndex,
+            },
+            tag: element.localName,
+            text: trimText(element.innerText || element.textContent || ''),
+        };
+    }, undefined);
+    const elementSummaries = selector => safe(() => Array.from(document.querySelectorAll(selector))
+        .slice(0, 8)
+        .map(elementSummary)
+        .filter(Boolean), []);
+    const urlSummary = url => {
+        try {
+            const parsed = new URL(url, location.href);
+            return {
+                hostname: parsed.hostname,
+                pathname: parsed.pathname,
+                protocol: parsed.protocol,
+            };
+        } catch {
+            return;
+        }
+    };
+    const querySummary = parsed => {
+        const keys = [
+            'alr',
+            'c',
+            'ctier',
+            'expire',
+            'mime',
+            'oad',
+            'rn',
+            'source',
+        ];
+        const out = {};
+        for ( const key of keys ) {
+            const value = parsed.searchParams.get(key);
+            if ( value !== null && value !== '' ) {
+                out[key] = value.slice(0, 80);
+            }
+        }
+        return Object.keys(out).length === 0 ? undefined : out;
+    };
+    const importantResource = entry => {
+        let parsed;
+        try {
+            parsed = new URL(entry.name, location.href);
+        } catch {
+            return;
+        }
+        const url = urlSummary(entry.name);
+        if ( url === undefined ) { return; }
+        const importantHost = /(?:^|\.)youtube\.com$|(?:^|\.)googlevideo\.com$|(?:^|\.)doubleclick\.net$|(?:^|\.)googleadservices\.com$|(?:^|\.)googlesyndication\.com$/.test(url.hostname);
+        const importantPath = /\/youtubei\/v1\/|\/api\/stats\/ads|\/pagead\/|\/generate_204|\/videoplayback/.test(url.pathname);
+        if ( importantHost === false && importantPath === false ) { return; }
+        return {
+            duration: Math.round(Number(entry.duration || 0)),
+            hostname: url.hostname,
+            initiatorType: entry.initiatorType || '',
+            pathname: url.pathname,
+            query: querySummary(parsed),
+            transferSize: Number.isFinite(entry.transferSize) ? entry.transferSize : undefined,
+        };
+    };
+
+    const player = safe(() => document.querySelector('#movie_player'), null);
+    const playerResponse = safe(() => player?.getPlayerResponse?.(), undefined);
+    const playabilityStatus = isObject(playerResponse?.playabilityStatus)
+        ? playerResponse.playabilityStatus
+        : undefined;
+    const stats = safe(() => player?.getStatsForNerds?.(), undefined);
+    const adState = safe(() => player?.getAdState?.(), undefined);
+    const simpleAdState = [ 'boolean', 'number', 'string' ].includes(typeof adState)
+        ? adState
+        : undefined;
+    const videos = safe(() => Array.from(document.querySelectorAll('video'))
+        .slice(0, 4)
+        .map(video => ({
+            currentSrc: urlSummary(video.currentSrc || video.src || ''),
+            duration: Number.isFinite(video.duration) ? Math.round(video.duration) : undefined,
+            muted: video.muted === true,
+            paused: video.paused === true,
+            readyState: video.readyState,
+        })), []);
+    const resources = safe(() => performance.getEntriesByType('resource')
+        .map(importantResource)
+        .filter(Boolean)
+        .slice(-120), []);
+
+    return {
+        capturedAt: Date.now(),
+        document: {
+            hidden: document.hidden === true,
+            readyState: document.readyState,
+            title: trimText(document.title),
+            url: urlSummary(location.href),
+        },
+        resources,
+        youtube: {
+            adState: simpleAdState,
+            appEarlyHidden: safe(() => document.querySelector('ytd-app')?.dataset?.adblockEarlyHidden === 'true', false),
+            dom: {
+                antiBlockTextMatches: safe(() => {
+                    const text = document.body?.innerText || '';
+                    const matches = text.match(/廣告攔截器|ad blocker|Ad blockers violate|YouTube 服務條款/gi);
+                    return Array.isArray(matches) ? Array.from(new Set(matches)).slice(0, 6) : [];
+                }, []),
+                earlyHiddenCount: count('[data-adblock-early-hidden="true"]'),
+                earlyHiddenNodes: elementSummaries('[data-adblock-early-hidden="true"]'),
+                openedBackdropCount: count('tp-yt-iron-overlay-backdrop[opened], yt-iron-overlay-backdrop[opened]'),
+                openedDialogCount: count('tp-yt-paper-dialog[opened], yt-dialog-view-model[opened], ytd-popup-container tp-yt-paper-dialog'),
+                playabilityErrorCount: count('yt-playability-error-supported-renderers, ytd-player-error-message-renderer'),
+                playabilityErrorNodes: elementSummaries('yt-playability-error-supported-renderers, ytd-player-error-message-renderer'),
+                promotedRendererCount: count('ytd-promoted-video-renderer, ytd-display-ad-renderer, ytd-rich-item-renderer ytd-ad-slot-renderer, ytd-ad-slot-renderer'),
+            },
+            playerState: safe(() => player?.getPlayerState?.(), undefined),
+            playability: playabilityStatus === undefined
+                ? undefined
+                : {
+                    reason: trimText(playabilityStatus.reason),
+                    status: trimText(playabilityStatus.status),
+                    subreason: trimText(playabilityStatus.subreason?.runs?.[0]?.text || playabilityStatus.subreason),
+                },
+            stats: isObject(stats)
+                ? {
+                    adformat: trimText(stats.adformat),
+                    debugVideoId: trimText(stats.debug_videoId),
+                    playerState: trimText(stats.playerState),
+                    videoId: trimText(stats.video_id),
+                }
+                : undefined,
+            videos,
+        },
+    };
+}
+
+async function getPageDiagnosticState(tabId) {
+    if ( Number.isInteger(tabId) === false || browser.scripting === undefined ) {
+        return { available: false, error: 'missing-tab-id-or-scripting' };
+    }
+
+    const run = options => browser.scripting.executeScript({
+        target: { tabId, frameIds: [ 0 ] },
+        func: collectPageDiagnosticSnapshot,
+        ...options,
+    });
+
+    try {
+        const result = await run({ world: 'MAIN' });
+        return {
+            available: true,
+            world: 'MAIN',
+            ...(result?.[0]?.result || {}),
+        };
+    } catch(reason) {
+        try {
+            const result = await run({});
+            return {
+                available: true,
+                world: 'ISOLATED',
+                ...(result?.[0]?.result || {}),
+            };
+        } catch(fallbackReason) {
+            return {
+                available: false,
+                error: fallbackReason?.message || reason?.message || String(fallbackReason || reason),
+            };
+        }
+    }
+}
+
+async function getTabDiagnosticInfo(tabId) {
+    if ( Number.isInteger(tabId) === false ) {
+        return { id: undefined };
+    }
+    try {
+        const tab = await browser.tabs.get(tabId);
+        const url = summarizeURLForDiagnostics(tab?.url || '');
+        return {
+            active: tab?.active === true,
+            id: tabId,
+            status: tab?.status || '',
+            title: normalizeContentScriptText(tab?.title, ''),
+            url,
+        };
+    } catch(reason) {
+        return {
+            error: reason?.message || String(reason || 'unknown error'),
+            id: tabId,
+        };
+    }
+}
+
+async function getDiagnosticSnapshot(request) {
+    const tabId = Number.parseInt(request.tabId, 10);
+    const minTimeStamp = Number.isFinite(Number(request.minTimeStamp))
+        ? Number(request.minTimeStamp)
+        : Date.now() - (30 * 60 * 1000);
+    const tab = await getTabDiagnosticInfo(tabId);
+    const hostname = tab.url?.hostname || '';
+
+    const [
+        registeredContentScripts,
+        dnrState,
+        activityState,
+        eventState,
+        pageState,
+        defaultFilteringMode,
+        tabFilteringMode,
+        hasOmnipotence,
+    ] = await Promise.all([
+        scrmgr.getRegisteredContentScripts().catch(reason => ({
+            error: reason?.message || String(reason || 'unknown error'),
+        })),
+        getDNRDiagnosticState(Number.isInteger(tabId) ? tabId : undefined, minTimeStamp),
+        getContentScriptActivity({ tabId, minTimeStamp }),
+        getDiagnosticEvents({ tabId, minTimeStamp }),
+        getPageDiagnosticState(tabId),
+        getDefaultFilteringMode().catch(() => undefined),
+        hostname !== '' ? getFilteringMode(hostname).catch(() => undefined) : undefined,
+        hasBroadHostPermissions().catch(() => undefined),
+    ]);
+
+    return {
+        capturedAt: Date.now(),
+        contentScripts: {
+            activities: activityState.activities,
+            diagnosticEvents: eventState.events,
+            registered: registeredContentScripts,
+        },
+        dnr: dnrState,
+        extension: {
+            hasBroadHostPermissions: hasOmnipotence,
+            runtimeSettings: {
+                popupBlockMode: runtimeSettings.popupBlockMode,
+                showBlockedCount: runtimeSettings.showBlockedCount,
+            },
+            version: getCurrentVersion(),
+            webextFlavor,
+        },
+        filtering: {
+            defaultMode: defaultFilteringMode,
+            tabMode: tabFilteringMode,
+        },
+        minTimeStamp,
+        ok: true,
+        page: pageState,
+        tab,
     };
 }
 
@@ -686,6 +1273,16 @@ async function onMessage(request, sender) {
 
     case 'getContentScriptActivity':
         return getContentScriptActivity(request);
+
+    case 'recordDiagnosticEvent':
+        return recordDiagnosticEvent(request, sender);
+
+    case 'getDiagnosticSnapshot':
+        await isFullyInitialized;
+        if ( await scrmgr.needsContentScriptRegistration() ) {
+            await registerContentScripts();
+        }
+        return getDiagnosticSnapshot(request);
 
     case 'insertCSS':
         if ( frameId === false ) { return false; }

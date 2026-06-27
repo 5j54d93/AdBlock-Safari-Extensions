@@ -31,7 +31,7 @@ import { registerToolbarIconToggler } from './action.js';
 /******************************************************************************/
 
 const detailCache = new Map();
-const CONTENT_SCRIPT_REGISTRATION_VERSION = 24;
+const CONTENT_SCRIPT_REGISTRATION_VERSION = 25;
 const CONTENT_SCRIPT_REGISTRATION_VERSION_KEY = 'scripting.manager.registration.version';
 const CSS_CACHE_PREFIX = 'cache.css.';
 const CSS_SPECIFIC_PREFIX = 'css.specific.';

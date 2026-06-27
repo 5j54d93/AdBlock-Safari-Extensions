@@ -12,6 +12,7 @@ import {
 
 import { qs$ } from '../shared/dom.js';
 import { toUnicode } from '../shared/idn.js';
+import { getDiagnosticSnapshot } from '../shared/diagnostics.js';
 
 import {
     RECENT_MATCH_WINDOW_MS,
@@ -73,6 +74,30 @@ function formatRuleId(match) {
 
 function formatCount(value) {
     return Number.isFinite(value) ? String(value) : '—';
+}
+
+function safeFilenamePart(value, fallback = 'page') {
+    const text = String(value || '')
+        .trim()
+        .replace(/[^a-z0-9.-]+/gi, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 64);
+    return text || fallback;
+}
+
+function downloadJSON(filename, data) {
+    const blob = new Blob([
+        JSON.stringify(data, null, 2),
+        '\n',
+    ], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function currentReportURL() {
@@ -301,5 +326,42 @@ async function refreshReport() {
     }
 }
 
+async function exportDiagnostics() {
+    const button = qs$('#exportDiagnostics');
+    const label = button?.querySelector('span');
+    const beforeLabel = label?.textContent || '匯出診斷';
+    button?.setAttribute('disabled', '');
+    if ( label !== undefined && label !== null ) {
+        label.textContent = '匯出中';
+    }
+    try {
+        const minTimeStamp = Date.now() - RECENT_MATCH_WINDOW_MS;
+        const snapshot = await getDiagnosticSnapshot({
+            tabId: Number.isInteger(tabId) ? tabId : undefined,
+            minTimeStamp,
+        });
+        const hostname = snapshot.tab?.url?.hostname || sourceURL?.hostname || 'page';
+        const timestamp = new Date(snapshot.capturedAt || Date.now())
+            .toISOString()
+            .replace(/[:.]/g, '-');
+        downloadJSON(
+            `adblock-diagnostics-${safeFilenamePart(hostname)}-${timestamp}.json`,
+            snapshot
+        );
+    } catch(reason) {
+        if ( label !== undefined && label !== null ) {
+            label.textContent = '匯出失敗';
+        }
+        console.log(`exportDiagnostics/${reason}`);
+        await new Promise(resolve => setTimeout(resolve, 900));
+    } finally {
+        if ( label !== undefined && label !== null ) {
+            label.textContent = beforeLabel;
+        }
+        button?.removeAttribute('disabled');
+    }
+}
+
 qs$('#refreshReport')?.addEventListener('click', refreshReport);
+qs$('#exportDiagnostics')?.addEventListener('click', exportDiagnostics);
 refreshReport();

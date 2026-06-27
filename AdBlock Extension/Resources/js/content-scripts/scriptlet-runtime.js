@@ -26,6 +26,32 @@ self.__adblockScriptletState = state;
 
 const noop = function adblockNoop() {};
 
+function sendDiagnosticEvent(eventName, details = {}) {
+    const message = {
+        source: 'scriptlet-runtime',
+        eventName,
+        hostname: location.hostname,
+        details,
+    };
+    try {
+        if ( chrome.runtime?.sendMessage instanceof Function ) {
+            chrome.runtime.sendMessage({
+                what: 'recordDiagnosticEvent',
+                ...message,
+            });
+            return;
+        }
+    } catch {
+    }
+    try {
+        self.postMessage({
+            __adblockDiagnosticEvent: true,
+            ...message,
+        }, '*');
+    } catch {
+    }
+}
+
 function escapeRegex(text) {
     return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -1447,6 +1473,13 @@ self.adblockRunScriptlets = function adblockRunScriptlets(data) {
 
     const todo = collectTodos(data);
     if ( todo.size === 0 ) { return; }
+    if ( location.hostname.endsWith('youtube.com') ) {
+        sendDiagnosticEvent('scriptlet-ruleset-applied', {
+            rulesetId: data.rulesetId || '',
+            todoCount: todo.size,
+            world: data.world || '',
+        });
+    }
 
     const arglists = String(data.arglists || '').split(';');
     const args = data.args || [];

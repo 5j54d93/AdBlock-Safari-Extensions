@@ -114,7 +114,16 @@ main {
     overflow-wrap: anywhere;
 }
 
-#refreshReport {
+.report-actions {
+    align-items: center;
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.report-action {
     align-items: center;
     background: var(--report-surface);
     border: 0.5px solid rgb(var(--report-border-rgb) / 0.14);
@@ -129,16 +138,22 @@ main {
     transition: background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
 }
 
-#refreshReport:hover {
+.report-action:hover {
     background: var(--report-surface-hover);
     border-color: rgb(var(--report-border-rgb) / 0.20);
 }
 
-#refreshReport:active {
+.report-action:active {
     transform: scale(0.985);
 }
 
-#refreshReport svg {
+.report-action:disabled {
+    cursor: default;
+    opacity: 0.56;
+    transform: none;
+}
+
+.report-action svg {
     height: 15px;
     width: 15px;
 }
@@ -318,9 +333,13 @@ tbody tr:last-child td {
         padding-top: 24px;
     }
 
-    #refreshReport {
-        justify-content: center;
+    .report-actions {
         width: 100%;
+    }
+
+    .report-action {
+        flex: 1 1 140px;
+        justify-content: center;
     }
 
     .summary-grid {
