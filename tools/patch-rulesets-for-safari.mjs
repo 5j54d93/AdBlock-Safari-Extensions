@@ -155,12 +155,36 @@ function patchRequestDomains(ruleset) {
     return out;
 }
 
+// Safari/WebKit DNR uses the legacy `domains` / `excludedDomains` condition keys
+// for the initiator (page) domain, NOT MV3's `initiatorDomains` /
+// `excludedInitiatorDomains`. Dynamic rules are converted at runtime by the
+// extension's prepareRuleForSafari shim, but static rulesets are loaded straight
+// from JSON and never converted — so WebKit rejects every initiatorDomains rule
+// and fails the whole content rule list. Bake the same conversion into the static
+// rulesets so they actually compile and apply on Safari.
+function convertDomainKeysForSafari(ruleset) {
+    for ( const rule of ruleset ) {
+        const condition = rule.condition;
+        if ( condition === undefined ) { continue; }
+        if ( Array.isArray(condition.initiatorDomains) ) {
+            condition.domains = condition.initiatorDomains;
+            delete condition.initiatorDomains;
+        }
+        if ( Array.isArray(condition.excludedInitiatorDomains) ) {
+            condition.excludedDomains = condition.excludedInitiatorDomains;
+            delete condition.excludedInitiatorDomains;
+        }
+    }
+    return ruleset;
+}
+
 function patchRuleset(ruleset) {
     ruleset = discardUnsupportedRules(ruleset);
     ruleset = patchForIssue434(ruleset);
     ruleset = patchForIssue539(ruleset);
     ruleset = patchRemoveParams(ruleset);
     ruleset = patchRequestDomains(ruleset);
+    ruleset = convertDomainKeysForSafari(ruleset);
     // WebKit/Chromium both require unique ids within a ruleset, and the patches
     // above clone rules (duplicating ids), so renumber sequentially.
     ruleset.forEach((rule, i) => { rule.id = i + 1; });
