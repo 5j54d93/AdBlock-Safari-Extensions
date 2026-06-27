@@ -31,7 +31,7 @@ import { registerToolbarIconToggler } from './action.js';
 /******************************************************************************/
 
 const detailCache = new Map();
-const CONTENT_SCRIPT_REGISTRATION_VERSION = 25;
+const CONTENT_SCRIPT_REGISTRATION_VERSION = 29;
 const CONTENT_SCRIPT_REGISTRATION_VERSION_KEY = 'scripting.manager.registration.version';
 const CSS_CACHE_PREFIX = 'cache.css.';
 const CSS_SPECIFIC_PREFIX = 'css.specific.';
@@ -542,6 +542,13 @@ function youtubeFilteringMatches(filteringModeDetails) {
 }
 
 function addYouTubeAdPruner(context) {
+    // youtube-ad-prune proxies fetch / XMLHttpRequest / JSON.parse in the MAIN
+    // world to strip ads out of YouTube's network responses. On Safari/WebKit
+    // these core-API proxies break YouTube's data loading (feed/lazy-loaded
+    // thumbnails stop appearing, navigation stalls). Skip on Safari — YouTube
+    // works normally, at the cost of not pruning YouTube's own ads there.
+    if ( webextFlavor === 'safari' ) { return; }
+
     const { filteringModeDetails } = context;
     const matches = youtubeFilteringMatches(filteringModeDetails);
     if ( matches.length === 0 ) { return; }
@@ -570,6 +577,50 @@ function addYouTubeAdPruner(context) {
 
     addPageActivityBridge(context, directive.id, matches, excludeMatches);
     addContentScript(context, directive);
+}
+
+/******************************************************************************/
+
+function addYouTubeExperimentalScriptlets(context) {
+    // uBO's experimental YouTube anti-adblock scriptlet rewrites core page APIs
+    // (fetch/XHR/JSON) in the MAIN world at document_start. On Safari/WebKit this
+    // is incompatible and hangs YouTube's bootstrap — the page never finishes
+    // loading. Skip it on Safari: YouTube loads normally, at the cost of not
+    // bypassing YouTube's own anti-adblock there.
+    if ( webextFlavor === 'safari' ) { return; }
+
+    const { filteringModeDetails } = context;
+    const matches = youtubeFilteringMatches(filteringModeDetails);
+    if ( matches.length === 0 ) { return; }
+
+    const excludeMatches = hostnames.matchesFromHostnames([
+        ...filteringModeDetails.none,
+        ...filteringModeDetails.basic,
+    ].filter(hostname =>
+        hostname === 'all-urls' ||
+        hostname === YOUTUBE_HOSTNAME ||
+        hostname.endsWith(`.${YOUTUBE_HOSTNAME}`)
+    ));
+
+    for ( const world of [ 'MAIN', 'ISOLATED' ] ) {
+        const lowerWorld = world.toLowerCase();
+        const directive = {
+            id: `youtube-ublock-experimental.${lowerWorld}`,
+            js: [
+                '/js/content-scripts/scriptlet-runtime.js',
+                `/rulesets/scripting/scriptlet/${lowerWorld}/ublock-experimental.js`,
+            ],
+            matches,
+            allFrames: true,
+            matchOriginAsFallback: true,
+            runAt: 'document_start',
+            world,
+        };
+        if ( excludeMatches.length !== 0 ) {
+            directive.excludeMatches = excludeMatches;
+        }
+        addContentScript(context, directive);
+    }
 }
 
 /******************************************************************************/
@@ -712,6 +763,7 @@ async function registerContentScriptsNow() {
     addFacebookStoryMute(context);
     addInstagramAdPruner(context);
     addYouTubeAdPruner(context);
+    addYouTubeExperimentalScriptlets(context);
     addAdSlotCollapser(context);
     addGenericCosmeticScripts(context, genericDetails);
     addScriptletScripts(context, scriptletDetails);
