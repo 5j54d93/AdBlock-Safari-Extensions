@@ -909,6 +909,33 @@ function collectPageDiagnosticSnapshot() {
         .slice(0, 8)
         .map(elementSummary)
         .filter(Boolean), []);
+    const scrollElementSummary = element => safe(() => {
+        if ( element instanceof Element === false ) { return; }
+        const style = getComputedStyle(element);
+        return {
+            classes: classText(element),
+            earlyHidden: element instanceof HTMLElement &&
+                element.dataset.adblockEarlyHidden === 'true',
+            id: trimText(element.id || ''),
+            inert: element.hasAttribute('inert'),
+            scrollHeight: Math.round(element.scrollHeight || 0),
+            scrollLeft: Math.round(element.scrollLeft || 0),
+            scrollTop: Math.round(element.scrollTop || 0),
+            scrollWidth: Math.round(element.scrollWidth || 0),
+            style: {
+                blockSize: style.blockSize,
+                height: style.height,
+                maxHeight: style.maxHeight,
+                overflow: style.overflow,
+                overflowX: style.overflowX,
+                overflowY: style.overflowY,
+                pointerEvents: style.pointerEvents,
+                position: style.position,
+                top: style.top,
+            },
+            tag: element.localName,
+        };
+    }, undefined);
     const urlSummary = url => {
         try {
             const parsed = new URL(url, location.href);
@@ -992,6 +1019,18 @@ function collectPageDiagnosticSnapshot() {
         document: {
             hidden: document.hidden === true,
             readyState: document.readyState,
+            scroll: {
+                body: scrollElementSummary(document.body),
+                documentElement: scrollElementSummary(document.documentElement),
+                innerHeight: Math.round(self.innerHeight || 0),
+                innerWidth: Math.round(self.innerWidth || 0),
+                scrollingElement: scrollElementSummary(document.scrollingElement),
+                targets: safe(() => [
+                    ...document.querySelectorAll('ytd-app, ytd-watch-flexy, #page-manager, #content'),
+                ].slice(0, 8).map(scrollElementSummary).filter(Boolean), []),
+                x: Math.round(self.scrollX || 0),
+                y: Math.round(self.scrollY || 0),
+            },
             title: trimText(document.title),
             url: urlSummary(location.href),
         },

@@ -392,7 +392,10 @@ function cleanup() {
     const textOfferwallCount = hideOfferwallTextCandidates();
     hiddenCount += textOfferwallCount;
 
-    if ( offerwallNodes.length !== 0 || textOfferwallCount !== 0 ) {
+    if (
+        offerwallNodes.length !== 0 ||
+        textOfferwallCount !== 0
+    ) {
         unlockPageInteraction();
         requestYouTubePlaybackResume();
     }
