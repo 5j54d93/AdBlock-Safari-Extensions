@@ -542,11 +542,17 @@ function youtubeFilteringMatches(filteringModeDetails) {
 }
 
 function addYouTubeAdPruner(context) {
-    // youtube-ad-prune proxies fetch / XMLHttpRequest / JSON.parse in the MAIN
-    // world to strip ads out of YouTube's network responses. On Safari/WebKit
-    // these core-API proxies break YouTube's data loading (feed/lazy-loaded
-    // thumbnails stop appearing, navigation stalls). Skip on Safari — YouTube
-    // works normally, at the cost of not pruning YouTube's own ads there.
+    // On Safari/WebKit, blocking YouTube's video ads is not achievable. R&D
+    // (youtube-ad-prune-safari.js, since removed) confirmed: the full pruner's
+    // global JSON.parse/fetch/XHR proxies hang YouTube; a narrow player-only
+    // variant doesn't hang, but stripping the ad fields makes YouTube's player
+    // detect tampering and apply its "ad blocker violates ToS" enforcement
+    // client-side, AFTER our interception — playabilityStatus is forced to ERROR
+    // even though streamingData is present, and it can't be reversed post-hoc
+    // (readyState stays 0). Beating that needs hooking the player's internal
+    // check before it runs, which is exactly the MAIN-world hooking that hangs
+    // Safari. Net effect of any pruning on Safari is a black screen, which is
+    // worse than ads — so do nothing here. YouTube plays normally, with ads.
     if ( webextFlavor === 'safari' ) { return; }
 
     const { filteringModeDetails } = context;
