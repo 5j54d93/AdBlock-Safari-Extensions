@@ -337,6 +337,11 @@ async function toggleProtection(event) {
     protectionStateRequestId += 1;
     setProtectionTogglePending(true);
     renderProtectionToggle({ enabled: after });
+    // Re-render the overview immediately so its text/skeleton stays in sync with
+    // the toggle's optimistic state. Otherwise the old overview lingers until the
+    // background round-trip below resolves — showing stale text when turning off,
+    // or an empty count beside the unit (a leading gap) when turning on.
+    queueBlockingOverview();
     setToolStatus('');
 
     try {
