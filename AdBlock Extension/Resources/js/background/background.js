@@ -308,13 +308,37 @@ async function applyMacAppCustomFilters(settings) {
     return true;
 }
 
+// Site-exception entries from the macOS app may be free-form (a full URL, or a
+// host with a path/port). Filtering modes are matched purely by hostname, so
+// reduce each entry to its bare hostname — otherwise an entry such as
+// "https://adsense.google.com/adsense/u/0/" never matches adsense.google.com and
+// the exception silently does nothing.
+function siteEntryToHostname(entry) {
+    if ( typeof entry !== 'string' ) { return ''; }
+    let hn = entry.trim().toLowerCase();
+    if ( hn === '' || hn === 'all-urls' ) { return hn; }
+    const scheme = hn.indexOf('://');
+    if ( scheme !== -1 ) { hn = hn.slice(scheme + 3); }
+    hn = hn.split(/[/?#]/, 1)[0];
+    const at = hn.lastIndexOf('@');
+    if ( at !== -1 ) { hn = hn.slice(at + 1); }
+    const colon = hn.indexOf(':');
+    if ( colon !== -1 ) { hn = hn.slice(0, colon); }
+    while ( hn.endsWith('.') ) { hn = hn.slice(0, -1); }
+    return hn;
+}
+
+function normalizeSiteHostnames(list) {
+    return uniqueStringArray((list || []).map(siteEntryToHostname).filter(Boolean)) || [];
+}
+
 async function applyMacAppSiteFilteringHostnames(settings) {
     const before = runtimeSettings.macAppSiteFilteringHostnames || {};
     const after = {
-        none: uniqueStringArray(settings.noFilteringHostnames) || [],
-        basic: uniqueStringArray(settings.basicFilteringHostnames) || [],
-        optimal: uniqueStringArray(settings.optimalFilteringHostnames) || [],
-        complete: uniqueStringArray(settings.completeFilteringHostnames) || [],
+        none: normalizeSiteHostnames(settings.noFilteringHostnames),
+        basic: normalizeSiteHostnames(settings.basicFilteringHostnames),
+        optimal: normalizeSiteHostnames(settings.optimalFilteringHostnames),
+        complete: normalizeSiteHostnames(settings.completeFilteringHostnames),
     };
     if ( sameSiteFilteringHostnames(before, after) ) { return false; }
 

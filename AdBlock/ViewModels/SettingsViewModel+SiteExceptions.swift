@@ -74,11 +74,13 @@ extension SettingsViewModel {
     }
 
     static func exceptions(from settings: AdBlockSettings) -> [SiteException] {
+        // Normalize on load so legacy entries stored as full URLs/paths surface
+        // as the bare hostname the extension actually matches on.
         var result: [SiteException] = []
-        result += settings.noFilteringHostnames.map { SiteException(domain: $0, mode: .none) }
-        result += settings.basicFilteringHostnames.map { SiteException(domain: $0, mode: .basic) }
-        result += settings.optimalFilteringHostnames.map { SiteException(domain: $0, mode: .optimal) }
-        result += settings.completeFilteringHostnames.map { SiteException(domain: $0, mode: .complete) }
+        result += settings.noFilteringHostnames.map { SiteException(domain: SiteException.normalizedHostname($0), mode: .none) }
+        result += settings.basicFilteringHostnames.map { SiteException(domain: SiteException.normalizedHostname($0), mode: .basic) }
+        result += settings.optimalFilteringHostnames.map { SiteException(domain: SiteException.normalizedHostname($0), mode: .optimal) }
+        result += settings.completeFilteringHostnames.map { SiteException(domain: SiteException.normalizedHostname($0), mode: .complete) }
         return orderedSiteExceptions(result, preferredOrder: settings.siteExceptionOrder)
     }
 
@@ -129,9 +131,7 @@ extension SettingsViewModel {
 
         var ordered: [SiteException] = []
         for domain in preferredOrder {
-            let normalized = domain
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .lowercased()
+            let normalized = SiteException.normalizedHostname(domain)
             guard let exception = remaining.removeValue(forKey: normalized) else { continue }
             ordered.append(exception)
         }
